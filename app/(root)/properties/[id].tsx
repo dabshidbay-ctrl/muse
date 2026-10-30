@@ -341,8 +341,13 @@ export default function Property() {
               <IconButton
                 icon={icons.heart}
                 label={isFavorite ? "Remove from saved properties" : "Save this property"}
-                onPress={toggleFavorite}
-                disabled={savingFavorite || !user?.id}
+                // A public visitor has nothing to save yet: send them to
+                // sign-in instead of a disabled button that explains nothing.
+                onPress={() => {
+                  if (!user?.id) router.push("/sign-in");
+                  else void toggleFavorite();
+                }}
+                disabled={savingFavorite}
                 tintColor={isFavorite ? "#F75555" : undefined}
                 className={`hover-heart ${isFavorite ? "bg-danger/20" : ""}`}
               />
@@ -657,6 +662,13 @@ export default function Property() {
           </View>
           <Touchable
             onPress={() => {
+              // Booking needs an account, and the submit handler silently
+              // returns without one — so a public visitor is sent to
+              // sign-in here, instead of opening a form that can never send.
+              if (!user?.id) {
+                router.push("/sign-in");
+                return;
+              }
               setBookingSent(false);
               setBookingOpen(true);
             }}
@@ -664,7 +676,7 @@ export default function Property() {
             accessibilityLabel={
               isOwnListing ? "You cannot rent your own listing" : `${property.rental_mode === "monthly" ? "Rent" : "Book"} ${property.name}`
             }
-            accessibilityHint={isOwnListing ? undefined : "Opens the booking request form"}
+            accessibilityHint={isOwnListing ? undefined : user?.id ? "Opens the booking request form" : "Sign in to send a booking request"}
             accessibilityState={{ disabled: isOwnListing }}
             className="items-center justify-center rounded-full bg-primary-300 py-md"
             // Width belongs to the outer Pressable: the inner view only paints.
@@ -675,7 +687,7 @@ export default function Property() {
             }}
           >
             <Text className="text-body font-rubik-bold text-white">
-              {isOwnListing ? "Your listing" : property.rental_mode === "monthly" ? "Rent now" : "Book now"}
+              {isOwnListing ? "Your listing" : !user?.id ? "Sign in to book" : property.rental_mode === "monthly" ? "Rent now" : "Book now"}
             </Text>
           </Touchable>
         </View>

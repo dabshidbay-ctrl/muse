@@ -175,6 +175,10 @@ const SignIn = () => {
     const [phone, setPhone] = useState('')
     const [role, setRole] = useState<SignUpRole>('tenant')
     const [submitted, setSubmitted] = useState(false)
+    // Set only by "Forgot password?": the reset flow validates the email
+    // field alone, so it must not light up the password (or phone) errors
+    // the way a full form submit does.
+    const [resetAttempted, setResetAttempted] = useState(false)
     const [busy, setBusy] = useState<'email' | 'google' | 'reset' | null>(null)
     // Set after a sign-up that Supabase withheld a session for. Replaces the
     // form, because there is nothing more to do on this screen until the user
@@ -221,6 +225,7 @@ const SignIn = () => {
     const switchMode = useCallback((next: Mode) => {
         setMode(next)
         setSubmitted(false)
+        setResetAttempted(false)
         setFormError(null)
         setFormNotice(null)
     }, [])
@@ -271,9 +276,10 @@ const SignIn = () => {
     }, [valid, busy, isSignUp, email, password, fullName, role, phone])
 
     const resetPassword = useCallback(async () => {
-        setSubmitted(true)
-        // Reset only needs the address, so it is gated on the email field alone
-        // rather than on the whole form.
+        // Reset only needs the address, so it is gated on the email field
+        // alone — and it must not mark the whole form submitted, or an empty
+        // password field lights up with an error the reset never needed.
+        setResetAttempted(true)
         if (errors.email || busy) return
 
         setBusy('reset')
@@ -385,14 +391,14 @@ const SignIn = () => {
                                     >
                                         {isSignUp ? (
                                             <>
-                                                Create your{'\n'}
+                                                Create your{' \n'}
                                                 <Text className="text-primary-300">
                                                     ReState account
                                                 </Text>
                                             </>
                                         ) : (
                                             <>
-                                                Let&apos;s get you closer to{'\n'}
+                                                Let&apos;s get you closer to{' \n'}
                                                 <Text className="text-primary-300">
                                                     your ideal home
                                                 </Text>
@@ -535,7 +541,7 @@ const SignIn = () => {
                                         label="Email"
                                         value={email}
                                         onChangeText={setEmail}
-                                        error={submitted ? errors.email : undefined}
+                                        error={submitted || resetAttempted ? errors.email : undefined}
                                         placeholder="you@example.com"
                                         keyboardType="email-address"
                                         autoCapitalize="none"

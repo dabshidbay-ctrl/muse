@@ -535,6 +535,18 @@ export default function MarketplaceItemScreen() {
                 </Text>
               </Touchable>
             )
+          ) : !user?.id && item.status === "approved" ? (
+            <Touchable
+              onPress={() => router.push("/sign-in")}
+              accessibilityLabel="Sign in to contact the seller"
+              accessibilityHint="You need an account before you can share your number with the seller"
+              style={{ minHeight: 52, marginTop: 12 }}
+              className="items-center justify-center rounded-full bg-primary-300"
+            >
+              <Text className="text-body font-rubik-semibold text-white">
+                Sign in to contact seller
+              </Text>
+            </Touchable>
           ) : null}
 
           {viewerIsOwner ? (
