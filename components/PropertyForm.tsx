@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Alert, ScrollView, Text, TextInput, View } from "react-native";
+import { ScrollView, Text, TextInput, View } from "react-native";
 import { router } from "expo-router";
 import { useSession } from "@/lib/useSession";
 import { supabase } from "@/lib/supabase";
@@ -172,6 +172,9 @@ export default function PropertyForm({
   const [amenityNote, setAmenityNote] = useState<string | null>(null);
   const [amenities, setAmenities] = useState<string[]>(initialAmenities ?? []);
   const [submitted, setSubmitted] = useState(false);
+  // Inline, never Alert.alert: on web Alert is a no-op, so a failed publish
+  // used to look like a dead button with no error at all.
+  const [formError, setFormError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   /**
    * Set once a create has succeeded. A later press (for example to retry photo
@@ -279,14 +282,12 @@ export default function PropertyForm({
     // as the first press, before the disabled state has rendered.
     if (saving) return;
     setSubmitted(true);
+    setFormError(null);
     if (!valid) return;
     // Separate from the validation gate: the form is filled in correctly, so
     // no field error would explain the press doing nothing.
     if (!user?.id) {
-      Alert.alert(
-        "You are signed out",
-        "Sign in again to publish a listing — your session expired while this form was open."
-      );
+      setFormError("You are signed out — sign in again to publish a listing. Your session expired while this form was open.");
       return;
     }
     setSaving(true);
@@ -358,9 +359,8 @@ export default function PropertyForm({
       }
 
       if (photoError || amenityError) {
-        Alert.alert(
-          "Listing saved, with problems",
-          [photoError, amenityError].filter(Boolean).join("\n\n")
+        setFormError(
+          `Listing saved, with problems: ${[photoError, amenityError].filter(Boolean).join(" ")}`
         );
         // Deliberately no navigation: leaving the form open is what makes the
         // retry above possible.
@@ -371,9 +371,10 @@ export default function PropertyForm({
       if (!initial) router.replace(`/properties/${saved.id}`);
     } catch (err) {
       captureError(err, "listing-save");
-      Alert.alert(
-        initial ? "Could not save changes" : "Could not publish listing",
-        err instanceof Error ? err.message : "Please try again."
+      setFormError(
+        `${initial ? "Could not save changes" : "Could not publish listing"}: ${
+          err instanceof Error ? err.message : "Please try again."
+        }`
       );
     } finally {
       setSaving(false);
@@ -655,6 +656,15 @@ export default function PropertyForm({
         >
           Please fix the highlighted fields before saving.
         </Text>
+      ) : null}
+
+      {formError ? (
+        <View
+          accessibilityRole="alert"
+          className="rounded-lg border border-danger bg-danger/10 p-md mt-md"
+        >
+          <Text className="text-body font-rubik-medium text-danger">{formError}</Text>
+        </View>
       ) : null}
 
       {/* The margin lives on a wrapper, not on the Touchable's className: that
