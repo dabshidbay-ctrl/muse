@@ -1,0 +1,72 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Keep keyboard focus visible on every shared React Native web control. */
+[role="button"]:focus-visible,
+[role="tab"]:focus-visible,
+[role="link"]:focus-visible {
+  outline: 3px solid #0061ff;
+  outline-offset: 3px;
+}
+
+/* ------------------------------------------------------------ hover states ---
+ * Pointer hover, declared in CSS rather than driven from React state.
+ *
+ * react-native-web's Pressable does not forward `onHoverIn`/`onHoverOut` in
+ * this version, so a JS-driven hover never fires and the control looks inert
+ * under the cursor. A `:hover` rule needs no event at all.
+ *
+ * These are web-only by definition — a touch device has no pointer to hover
+ * with — and the `@media (hover: hover)` guard keeps them off touch screens,
+ * where a sticky `:hover` would otherwise latch on after a tap.
+ *
+ * Specificity is class + pseudo-class (0,2,0), which beats the single-class
+ * Tailwind background it is overriding (0,1,0), so no `!important` is needed.
+ */
+@media (hover: hover) {
+  /* The wishlist heart: red on hover, before it is saved. */
+  .hover-heart:hover {
+    background-color: rgba(247, 85, 85, 0.25);
+  }
+
+  /* The share control: brand blue, so it reads as an action rather than a
+     white disc that disappears against a pale hero image. */
+  .hover-share:hover {
+    background-color: rgba(0, 97, 255, 0.18);
+  }
+
+  /* Generic lift for icon controls that have no colour of their own. */
+  .hover-surface:hover {
+    background-color: rgba(0, 0, 0, 0.08);
+  }
+
+  .dark .hover-surface:hover {
+    background-color: rgba(255, 255, 255, 0.12);
+  }
+}
+
+/* ---------------------------------------------------------------- theme ---
+ * primary-100 / primary-200 are the "selected" and "soft brand" fills: chip
+ * backgrounds, badges, icon circles. They used to be the brand blue at 4% and
+ * 10% alpha, which reads as a pale blue tint on white and as *nothing at all*
+ * on a near-black surface — so in dark mode every selected chip looked
+ * unselected. They are theme variables now, so the same class resolves to a
+ * fill with the right weight in either scheme and no call site needs a
+ * `dark:` twin.
+ *
+ * Channel triplets, not hex, so Tailwind's `/opacity` modifier still works
+ * (`bg-primary-100/50`).
+ */
+@layer base {
+  :root {
+    --primary-100: 235 242 255; /* #EBF2FF — blue tint on white */
+    --primary-200: 209 226 255; /* #D1E2FF — one step stronger */
+  }
+
+  /* darkMode is "class"; NativeWind sets it from the active colour scheme. */
+  .dark:root {
+    --primary-100: 25 42 74;  /* #192A4A — reads as "selected" on #12141C */
+    --primary-200: 36 60 105; /* #243C69 */
+  }
+}

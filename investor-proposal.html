@@ -1,0 +1,903 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ReState — Investor Proposal</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600;700&family=Josefin+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Josefin Sans', sans-serif;
+      background: #0F172A;
+      color: #E2E8F0;
+      overflow-x: hidden;
+    }
+    /* ── Slide container ── */
+    .slides { max-width: 1280px; margin: 0 auto; padding: 0; }
+    .slide {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      padding: 60px 80px;
+      position: relative;
+      border-bottom: 1px solid rgba(15, 118, 110, 0.3);
+      scroll-margin-top: 0;
+    }
+    @media (max-width: 768px) {
+      .slide { padding: 40px 24px; }
+    }
+
+    /* ── Navigation ── */
+    .nav-bar {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      z-index: 100;
+      background: rgba(15, 23, 42, 0.95);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid rgba(15, 118, 110, 0.2);
+      padding: 12px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .nav-bar .logo {
+      font-family: 'Cinzel', serif;
+      font-weight: 700;
+      font-size: 1.3rem;
+      color: #14B8A6;
+    }
+    .nav-bar .logo span { color: #fff; }
+    .nav-links { display: flex; gap: 16px; flex-wrap: wrap; }
+    .nav-links a {
+      color: #94A3B8;
+      text-decoration: none;
+      font-size: 0.85rem;
+      font-weight: 500;
+      transition: color 0.2s;
+    }
+    .nav-links a:hover { color: #14B8A6; }
+
+    /* ── Typography ── */
+    h1 {
+      font-family: 'Cinzel', serif;
+      font-weight: 700;
+      font-size: 3.5rem;
+      line-height: 1.15;
+      color: #fff;
+    }
+    h2 {
+      font-family: 'Cinzel', serif;
+      font-weight: 600;
+      font-size: 2.2rem;
+      color: #fff;
+      margin-bottom: 24px;
+    }
+    h3 {
+      font-family: 'Cinzel', serif;
+      font-weight: 600;
+      font-size: 1.3rem;
+      color: #14B8A6;
+      margin-bottom: 12px;
+    }
+    .subtitle {
+      font-size: 1.2rem;
+      color: #94A3B8;
+      font-weight: 400;
+      margin-top: 16px;
+      line-height: 1.6;
+    }
+    .accent { color: #14B8A6; }
+    .accent-blue { color: #38BDF8; }
+    .text-small { font-size: 0.9rem; color: #64748B; }
+
+    /* ── Cards ── */
+    .card-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 20px;
+      margin-top: 32px;
+    }
+    .card {
+      background: rgba(30, 41, 59, 0.6);
+      border: 1px solid rgba(15, 118, 110, 0.2);
+      border-radius: 16px;
+      padding: 28px 24px;
+      transition: transform 0.2s, border-color 0.2s;
+    }
+    .card:hover {
+      transform: translateY(-4px);
+      border-color: rgba(20, 184, 166, 0.5);
+    }
+    .card .icon {
+      font-size: 2rem;
+      margin-bottom: 12px;
+    }
+    .card h4 {
+      font-family: 'Cinzel', serif;
+      font-weight: 600;
+      font-size: 1.1rem;
+      color: #fff;
+      margin-bottom: 8px;
+    }
+    .card p { color: #94A3B8; font-size: 0.9rem; line-height: 1.5; }
+
+    /* ── Stats / Numbers ── */
+    .stat-row {
+      display: flex;
+      gap: 40px;
+      flex-wrap: wrap;
+      margin-top: 32px;
+    }
+    .stat {
+      text-align: center;
+      flex: 1;
+      min-width: 140px;
+    }
+    .stat .number {
+      font-family: 'Cinzel', serif;
+      font-weight: 700;
+      font-size: 3rem;
+      color: #14B8A6;
+    }
+    .stat .label {
+      font-size: 0.9rem;
+      color: #94A3B8;
+      margin-top: 4px;
+    }
+
+    /* ── Mockup screens ── */
+    .mockup-row {
+      display: flex;
+      gap: 24px;
+      flex-wrap: wrap;
+      justify-content: center;
+      margin-top: 32px;
+    }
+    .mockup {
+      background: #1E293B;
+      border: 1px solid rgba(15, 118, 110, 0.3);
+      border-radius: 20px;
+      padding: 16px;
+      width: 260px;
+      text-align: center;
+    }
+    .mockup .screen {
+      background: #0F172A;
+      border-radius: 12px;
+      padding: 16px 12px;
+      min-height: 380px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .mockup .screen .status-bar {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.7rem;
+      color: #64748B;
+      margin-bottom: 4px;
+    }
+    .mockup .screen .mock-header {
+      font-family: 'Cinzel', serif;
+      font-weight: 600;
+      font-size: 0.85rem;
+      color: #fff;
+      text-align: center;
+      padding: 8px 0;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+    }
+    .mockup .screen .mock-card {
+      background: rgba(30, 41, 59, 0.8);
+      border-radius: 8px;
+      padding: 10px;
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+    .mockup .screen .mock-card .img-placeholder {
+      width: 40px; height: 40px;
+      border-radius: 6px;
+      background: linear-gradient(135deg, #0F766E, #14B8A6);
+      flex-shrink: 0;
+    }
+    .mockup .screen .mock-card .info {
+      flex: 1;
+      text-align: left;
+    }
+    .mockup .screen .mock-card .info .title {
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: #fff;
+    }
+    .mockup .screen .mock-card .info .meta {
+      font-size: 0.65rem;
+      color: #94A3B8;
+    }
+    .mockup .screen .mock-card .price {
+      font-size: 0.75rem;
+      font-weight: 700;
+      color: #14B8A6;
+    }
+    .mockup .screen .mock-badge {
+      display: inline-block;
+      background: rgba(20, 184, 166, 0.15);
+      color: #14B8A6;
+      font-size: 0.6rem;
+      font-weight: 600;
+      padding: 3px 8px;
+      border-radius: 20px;
+    }
+    .mockup .screen .mock-btn {
+      background: #0F766E;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      padding: 10px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-align: center;
+      margin-top: 4px;
+    }
+    .mockup .screen .mock-btn.outline {
+      background: transparent;
+      border: 1px solid #0F766E;
+      color: #14B8A6;
+    }
+    .mockup-label {
+      font-size: 0.75rem;
+      color: #64748B;
+      margin-top: 8px;
+    }
+
+    /* ── Revenue chart ── */
+    .chart-container {
+      margin-top: 32px;
+      background: rgba(30, 41, 59, 0.6);
+      border: 1px solid rgba(15, 118, 110, 0.2);
+      border-radius: 16px;
+      padding: 32px;
+    }
+    .chart-bars {
+      display: flex;
+      align-items: flex-end;
+      gap: 24px;
+      height: 200px;
+      padding-top: 20px;
+      justify-content: center;
+    }
+    .chart-bar-wrapper {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+    }
+    .chart-bar {
+      width: 60px;
+      border-radius: 8px 8px 0 0;
+      transition: height 0.5s;
+      position: relative;
+    }
+    .chart-bar .val {
+      position: absolute;
+      top: -24px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 0.8rem;
+      font-weight: 700;
+      color: #fff;
+      white-space: nowrap;
+    }
+    .chart-label {
+      font-size: 0.75rem;
+      color: #94A3B8;
+      text-align: center;
+    }
+
+    /* ── Timeline ── */
+    .timeline {
+      position: relative;
+      margin-top: 40px;
+      padding-left: 40px;
+    }
+    .timeline::before {
+      content: '';
+      position: absolute;
+      left: 16px;
+      top: 0;
+      bottom: 0;
+      width: 2px;
+      background: linear-gradient(to bottom, #0F766E, #14B8A6);
+    }
+    .timeline-item {
+      position: relative;
+      margin-bottom: 32px;
+    }
+    .timeline-item::before {
+      content: '';
+      position: absolute;
+      left: -28px;
+      top: 4px;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: #14B8A6;
+      border: 3px solid #0F172A;
+    }
+    .timeline-item .month {
+      font-family: 'Cinzel', serif;
+      font-weight: 600;
+      font-size: 0.9rem;
+      color: #14B8A6;
+    }
+    .timeline-item p { color: #94A3B8; margin-top: 4px; line-height: 1.5; }
+
+    /* ── CTA ── */
+    .cta-box {
+      background: linear-gradient(135deg, rgba(15, 118, 110, 0.15), rgba(20, 184, 166, 0.08));
+      border: 1px solid rgba(20, 184, 166, 0.3);
+      border-radius: 20px;
+      padding: 40px;
+      text-align: center;
+      margin-top: 32px;
+    }
+    .cta-box h3 { font-size: 1.5rem; margin-bottom: 8px; }
+    .cta-box p { color: #94A3B8; max-width: 600px; margin: 0 auto; line-height: 1.6; }
+
+    /* ── Footer ── */
+    .footer {
+      text-align: center;
+      padding: 40px;
+      color: #475569;
+      font-size: 0.8rem;
+      border-top: 1px solid rgba(15, 118, 110, 0.15);
+    }
+
+    /* ── Animations ── */
+    .fade-in {
+      opacity: 0;
+      transform: translateY(20px);
+      animation: fadeIn 0.6s ease forwards;
+    }
+    @keyframes fadeIn {
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .delay-1 { animation-delay: 0.1s; }
+    .delay-2 { animation-delay: 0.2s; }
+    .delay-3 { animation-delay: 0.3s; }
+    .delay-4 { animation-delay: 0.4s; }
+
+    /* ── Print ── */
+    @media print {
+      .nav-bar { display: none; }
+      .slide { min-height: auto; page-break-after: always; border: none; }
+      body { background: #fff; color: #111; }
+      h1, h2, h3, h4 { color: #111; }
+      .subtitle, .card p, .stat .label, .text-small, .mockup-label, .timeline-item p, .cta-box p, .footer { color: #555; }
+      .card { background: #f5f5f5; border-color: #ddd; }
+      .chart-container { background: #f5f5f5; border-color: #ddd; }
+      .mockup { border-color: #ddd; }
+      .mockup .screen { background: #fafafa; }
+      .mockup .screen .mock-card { background: #f0f0f0; }
+      .cta-box { background: #f5f5f5; border-color: #14B8A6; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ═══════════════ NAV ═══════════════ -->
+<nav class="nav-bar">
+  <div class="logo">Re<span>State</span></div>
+  <div class="nav-links">
+    <a href="#slide-1">Opportunity</a>
+    <a href="#slide-2">Solution</a>
+    <a href="#slide-3">Shops &amp; Restaurants</a>
+    <a href="#slide-4">Revenue Model</a>
+    <a href="#slide-5">Financials</a>
+    <a href="#slide-6">Growth</a>
+    <a href="#slide-7">Investment</a>
+  </div>
+</nav>
+
+<!-- ═══════════════ SLIDE 0 — COVER ═══════════════ -->
+<section class="slide" id="slide-0" style="justify-content:center; text-align:center;">
+  <div class="fade-in">
+    <p style="font-family:'Cinzel',serif; font-weight:500; font-size:1rem; color:#14B8A6; letter-spacing:4px; text-transform:uppercase; margin-bottom:16px;">Investor Proposal</p>
+    <h1 style="font-size:4.5rem; margin-bottom:8px;">ReState</h1>
+    <p style="font-size:1.4rem; color:#94A3B8; font-weight:300; margin-bottom:32px;">Somalia's #1 Property &amp; Commerce Marketplace</p>
+    <div style="display:flex; gap:24px; justify-content:center; flex-wrap:wrap;">
+      <div class="stat" style="min-width:auto;"><div class="number" style="font-size:2rem;">$90k</div><div class="label">Month 1 Revenue Target</div></div>
+      <div class="stat" style="min-width:auto;"><div class="number" style="font-size:2rem;">50</div><div class="label">Shops &amp; Restaurants (M1)</div></div>
+      <div class="stat" style="min-width:auto;"><div class="number" style="font-size:2rem;">$300k</div><div class="label">Month 2 Revenue Target</div></div>
+      <div class="stat" style="min-width:auto;"><div class="number" style="font-size:2rem;">120</div><div class="label">Shops &amp; Restaurants (M2)</div></div>
+    </div>
+    <p style="margin-top:40px; color:#64748B; font-size:0.9rem;">Mobile App &bull; Web Platform &bull; Somali Mobile Money</p>
+  </div>
+</section>
+
+<!-- ═══════════════ SLIDE 1 — OPPORTUNITY ═══════════════ -->
+<section class="slide" id="slide-1">
+  <div class="fade-in">
+    <p class="text-small" style="margin-bottom:8px;">THE OPPORTUNITY</p>
+    <h2>Somalia's Digital Commerce<br>Revolution Has Begun</h2>
+    <p class="subtitle">Somalia has one of the highest mobile money penetration rates in the world — over 70% of adults use EVC+, Zaad, or eDahab. Yet there is <strong>no dominant online marketplace</strong> for property rentals, furniture, or local commerce. ReState fills that gap.</p>
+
+    <div class="card-grid">
+      <div class="card">
+        <div class="icon">🏠</div>
+        <h4>Property Rentals</h4>
+        <p>20 Mogadishu districts. Villas, apartments, rooms, and BnBs. Monthly and short-term rentals. No serious competitor exists.</p>
+      </div>
+      <div class="card">
+        <div class="icon">🛋️</div>
+        <h4>Furniture Marketplace</h4>
+        <p>Tenants furnishing their rentals buy second-hand furniture through the same app. Admin-moderated to prevent fraud.</p>
+      </div>
+      <div class="card">
+        <div class="icon">🏪</div>
+        <h4>Shops &amp; Restaurants</h4>
+        <p>New vertical — local shops, restaurants, and service providers list their offerings. We help them reach customers digitally.</p>
+      </div>
+      <div class="card">
+        <div class="icon">📱</div>
+        <h4>Mobile + Web</h4>
+        <p>React Native app (iOS &amp; Android) launching alongside a full web platform. Users can browse, book, and pay on any device.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════ SLIDE 2 — SOLUTION ═══════════════ -->
+<section class="slide" id="slide-2">
+  <div class="fade-in">
+    <p class="text-small" style="margin-bottom:8px;">OUR SOLUTION</p>
+    <h2>One Platform for<br>Rentals &amp; Local Commerce</h2>
+    <p class="subtitle">ReState connects property owners, tenants, shops, and restaurants in a single trusted marketplace — with Somali mobile money built in.</p>
+
+    <div class="mockup-row">
+      <!-- Mockup 1: Property Search -->
+      <div class="mockup">
+        <div class="screen">
+          <div class="status-bar"><span>9:41</span><span>📶 🔋</span></div>
+          <div class="mock-header">ReState</div>
+          <div style="display:flex; gap:4px; flex-wrap:wrap;">
+            <span class="mock-badge">Villa</span>
+            <span class="mock-badge">Apartment</span>
+            <span class="mock-badge">Room</span>
+          </div>
+          <div class="mock-card">
+            <div class="img-placeholder"></div>
+            <div class="info">
+              <div class="title">2-Bed Villa in Hodan</div>
+              <div class="meta">📍 Hodan District &bull; 2 beds</div>
+            </div>
+            <div class="price">$350/mo</div>
+          </div>
+          <div class="mock-card">
+            <div class="img-placeholder" style="background:linear-gradient(135deg,#0369A1,#38BDF8);"></div>
+            <div class="info">
+              <div class="title">Modern Apt, Waberi</div>
+              <div class="meta">📍 Waberi &bull; 3 beds &bull; WiFi</div>
+            </div>
+            <div class="price">$500/mo</div>
+          </div>
+          <div class="mock-card">
+            <div class="img-placeholder" style="background:linear-gradient(135deg,#7C3AED,#A78BFA);"></div>
+            <div class="info">
+              <div class="title">BnB near Lido Beach</div>
+              <div class="meta">📍 Abdiaziz &bull; Nightly</div>
+            </div>
+            <div class="price">$45/night</div>
+          </div>
+          <div class="mock-btn">Browse 200+ Listings</div>
+        </div>
+        <div class="mockup-label">📱 Property Search — Mobile App</div>
+      </div>
+
+      <!-- Mockup 2: Shop/Restaurant -->
+      <div class="mockup">
+        <div class="screen">
+          <div class="status-bar"><span>9:41</span><span>📶 🔋</span></div>
+          <div class="mock-header">Nearby Commerce</div>
+          <div style="display:flex; gap:4px; flex-wrap:wrap;">
+            <span class="mock-badge">🍽️ Restaurants</span>
+            <span class="mock-badge">🏪 Shops</span>
+            <span class="mock-badge">🛵 Services</span>
+          </div>
+          <div class="mock-card">
+            <div class="img-placeholder" style="background:linear-gradient(135deg,#DC2626,#F87171);"></div>
+            <div class="info">
+              <div class="title">Al-Minar Restaurant</div>
+              <div class="meta">⭐ 4.8 &bull; 🕐 8am-10pm</div>
+            </div>
+            <div class="price">$$</div>
+          </div>
+          <div class="mock-card">
+            <div class="img-placeholder" style="background:linear-gradient(135deg,#D97706,#FBBF24);"></div>
+            <div class="info">
+              <div class="title">Hodan General Store</div>
+              <div class="meta">⭐ 4.5 &bull; Groceries &amp; more</div>
+            </div>
+            <div class="price">$$</div>
+          </div>
+          <div class="mock-card">
+            <div class="img-placeholder" style="background:linear-gradient(135deg,#059669,#34D399);"></div>
+            <div class="info">
+              <div class="title">Banaadir Pharmacy</div>
+              <div class="meta">⭐ 4.7 &bull; 🕐 7am-9pm</div>
+            </div>
+            <div class="price">$$</div>
+          </div>
+          <div class="mock-btn outline">List Your Business</div>
+        </div>
+        <div class="mockup-label">🏪 Shops &amp; Restaurants — New Vertical</div>
+      </div>
+
+      <!-- Mockup 3: Web Platform -->
+      <div class="mockup">
+        <div class="screen">
+          <div class="status-bar"><span>9:41</span><span>📶 🔋</span></div>
+          <div class="mock-header">ReState Web</div>
+          <div style="background:rgba(30,41,59,0.8); border-radius:8px; padding:12px; text-align:center;">
+            <div style="font-size:0.7rem; color:#94A3B8; margin-bottom:8px;">🌐 re-state.com</div>
+            <div style="display:flex; gap:8px; justify-content:center; flex-wrap:wrap;">
+              <span class="mock-badge">Properties</span>
+              <span class="mock-badge">Marketplace</span>
+              <span class="mock-badge">Shops</span>
+            </div>
+            <div style="margin-top:8px; display:grid; grid-template-columns:1fr 1fr; gap:6px;">
+              <div style="background:rgba(15,118,110,0.2); border-radius:6px; padding:8px;">
+                <div style="font-size:0.65rem; color:#14B8A6;">Search</div>
+                <div style="font-size:0.6rem; color:#94A3B8;">Any district</div>
+              </div>
+              <div style="background:rgba(15,118,110,0.2); border-radius:6px; padding:8px;">
+                <div style="font-size:0.65rem; color:#14B8A6;">Book</div>
+                <div style="font-size:0.6rem; color:#94A3B8;">Instant or request</div>
+              </div>
+              <div style="background:rgba(15,118,110,0.2); border-radius:6px; padding:8px;">
+                <div style="font-size:0.65rem; color:#14B8A6;">Pay</div>
+                <div style="font-size:0.6rem; color:#94A3B8;">EVC+ / Zaad / eDahab</div>
+              </div>
+              <div style="background:rgba(15,118,110,0.2); border-radius:6px; padding:8px;">
+                <div style="font-size:0.65rem; color:#14B8A6;">Manage</div>
+                <div style="font-size:0.6rem; color:#94A3B8;">Dashboard</div>
+              </div>
+            </div>
+          </div>
+          <div class="mock-btn">Open Web App</div>
+        </div>
+        <div class="mockup-label">🌐 Web Platform — Desktop &amp; Mobile Browser</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════ SLIDE 3 — SHOPS & RESTAURANTS ═══════════════ -->
+<section class="slide" id="slide-3">
+  <div class="fade-in">
+    <p class="text-small" style="margin-bottom:8px;">HOW WE HELP LOCAL BUSINESSES</p>
+    <h2>Putting Shops &amp; Restaurants<br>on the Digital Map</h2>
+    <p class="subtitle">Most Somali shops and restaurants have no online presence. ReState gives them a storefront, payment collection, and customer reach — for the first time.</p>
+
+    <div class="card-grid" style="grid-template-columns:repeat(auto-fit,minmax(280px,1fr));">
+      <div class="card" style="text-align:center;">
+        <div class="icon">📋</div>
+        <h4>Digital Storefront</h4>
+        <p>Every business gets a beautiful profile page with photos, menu/ product catalog, hours, location, and contact info — visible on both app and web.</p>
+      </div>
+      <div class="card" style="text-align:center;">
+        <div class="icon">📢</div>
+        <h4>Customer Reach</h4>
+        <p>Featured in search results, category browsing, and location-based discovery. Push notifications for promotions and new items.</p>
+      </div>
+      <div class="card" style="text-align:center;">
+        <div class="icon">💳</div>
+        <h4>Mobile Money Payments</h4>
+        <p>Customers pay via EVC+, Zaad, eDahab, or Premier Wallet — no bank account needed. Instant settlement to the business owner.</p>
+      </div>
+      <div class="card" style="text-align:center;">
+        <div class="icon">📊</div>
+        <h4>Sales Dashboard</h4>
+        <p>Real-time analytics: total sales, order history, customer insights, and peak hours. Know your business better.</p>
+      </div>
+      <div class="card" style="text-align:center;">
+        <div class="icon">⭐</div>
+        <h4>Reviews &amp; Ratings</h4>
+        <p>Customer reviews build trust. High-rated businesses appear first in search — incentivising quality service.</p>
+      </div>
+      <div class="card" style="text-align:center;">
+        <div class="icon">📱</div>
+        <h4>Order Management</h4>
+        <p>Receive and manage customer orders, delivery requests, and enquiries — all from one dashboard on mobile or web.</p>
+      </div>
+    </div>
+
+    <!-- Mockup: How a restaurant benefits -->
+    <div class="mockup-row" style="margin-top:40px;">
+      <div class="mockup" style="width:320px;">
+        <div class="screen">
+          <div class="status-bar"><span>9:41</span><span>📶 🔋</span></div>
+          <div class="mock-header">🍽️ Al-Minar Restaurant</div>
+          <div style="display:flex; gap:4px; align-items:center; justify-content:center;">
+            <span style="font-size:0.7rem; color:#FBBF24;">⭐⭐⭐⭐⭐</span>
+            <span style="font-size:0.7rem; color:#94A3B8;">4.8 (120 reviews)</span>
+          </div>
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px; margin-top:4px;">
+            <div style="background:rgba(30,41,59,0.8); border-radius:8px; padding:8px; text-align:center;">
+              <div style="font-size:0.7rem; color:#14B8A6; font-weight:700;">$12,400</div>
+              <div style="font-size:0.6rem; color:#94A3B8;">Monthly Sales</div>
+            </div>
+            <div style="background:rgba(30,41,59,0.8); border-radius:8px; padding:8px; text-align:center;">
+              <div style="font-size:0.7rem; color:#14B8A6; font-weight:700;">340</div>
+              <div style="font-size:0.6rem; color:#94A3B8;">Orders This Month</div>
+            </div>
+          </div>
+          <div style="font-size:0.7rem; color:#94A3B8; text-align:left; margin-top:4px;">📈 <span style="color:#14B8A6;">+24%</span> vs last month</div>
+          <div class="mock-card" style="margin-top:4px;">
+            <div style="background:linear-gradient(135deg,#DC2626,#F87171); width:36px; height:36px; border-radius:6px; flex-shrink:0;"></div>
+            <div class="info">
+              <div class="title">Bariis &amp; Suqaar</div>
+              <div class="meta">Most ordered &bull; $8.00</div>
+            </div>
+          </div>
+          <div class="mock-btn outline" style="font-size:0.65rem;">View Full Menu →</div>
+        </div>
+        <div class="mockup-label">📱 Restaurant Dashboard — See the impact</div>
+      </div>
+
+      <div class="mockup" style="width:320px;">
+        <div class="screen">
+          <div class="status-bar"><span>9:41</span><span>📶 🔋</span></div>
+          <div class="mock-header">🏪 Hodan General Store</div>
+          <div style="display:flex; gap:4px; align-items:center; justify-content:center;">
+            <span style="font-size:0.7rem; color:#FBBF24;">⭐⭐⭐⭐</span>
+            <span style="font-size:0.7rem; color:#94A3B8;">4.5 (78 reviews)</span>
+          </div>
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px; margin-top:4px;">
+            <div style="background:rgba(30,41,59,0.8); border-radius:8px; padding:8px; text-align:center;">
+              <div style="font-size:0.7rem; color:#14B8A6; font-weight:700;">$8,700</div>
+              <div style="font-size:0.6rem; color:#94A3B8;">Monthly Sales</div>
+            </div>
+            <div style="background:rgba(30,41,59,0.8); border-radius:8px; padding:8px; text-align:center;">
+              <div style="font-size:0.7rem; color:#14B8A6; font-weight:700;">215</div>
+              <div style="font-size:0.6rem; color:#94A3B8;">Orders This Month</div>
+            </div>
+          </div>
+          <div style="font-size:0.7rem; color:#94A3B8; text-align:left; margin-top:4px;">📈 <span style="color:#14B8A6;">+18%</span> vs last month</div>
+          <div class="mock-card" style="margin-top:4px;">
+            <div style="background:linear-gradient(135deg,#D97706,#FBBF24); width:36px; height:36px; border-radius:6px; flex-shrink:0;"></div>
+            <div class="info">
+              <div class="title">Rice (50kg bag)</div>
+              <div class="meta">Top seller &bull; $45.00</div>
+            </div>
+          </div>
+          <div class="mock-btn outline" style="font-size:0.65rem;">View All Products →</div>
+        </div>
+        <div class="mockup-label">📱 Shop Dashboard — Real sales data</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════ SLIDE 4 — REVENUE MODEL ═══════════════ -->
+<section class="slide" id="slide-4">
+  <div class="fade-in">
+    <p class="text-small" style="margin-bottom:8px;">REVENUE MODEL</p>
+    <h2>How We Make Money</h2>
+    <p class="subtitle">Multiple revenue streams across property and commerce — each one scalable and proven in similar markets.</p>
+
+    <div class="card-grid" style="grid-template-columns:repeat(auto-fit,minmax(260px,1fr));">
+      <div class="card">
+        <div class="icon">🏠</div>
+        <h4>Property Commission</h4>
+        <p><strong>5–10%</strong> per successful rental booking. Monthly rentals ($300–$1,500) and short-term stays ($30–$80/night). Processed via Sifalo Pay mobile money.</p>
+      </div>
+      <div class="card">
+        <div class="icon">🏪</div>
+        <h4>Shop Subscription</h4>
+        <p><strong>$29–$99/month</strong> per business. Tiered: Basic (profile + listing), Premium (promotion + analytics), Enterprise (multi-location + API).</p>
+      </div>
+      <div class="card">
+        <div class="icon">📢</div>
+        <h4>Featured Listings</h4>
+        <p>Paid placement in search results, home screen banners, and push notification campaigns. <strong>$10–$50</strong> per campaign.</p>
+      </div>
+      <div class="card">
+        <div class="icon">🛋️</div>
+        <h4>Marketplace Fees</h4>
+        <p><strong>3–5%</strong> transaction fee on furniture and goods sold through the marketplace. High volume, low friction.</p>
+      </div>
+      <div class="card">
+        <div class="icon">📊</div>
+        <h4>Premium Analytics</h4>
+        <p>Advanced sales reports, customer insights, and market trends for business owners. <strong>$19/month</strong> add-on.</p>
+      </div>
+      <div class="card">
+        <div class="icon">🔗</div>
+        <h4>Delivery Partnerships</h4>
+        <p>Referral fees from delivery/logistics partners when shop orders are fulfilled. <strong>5%</strong> referral commission.</p>
+      </div>
+    </div>
+
+    <div class="stat-row" style="margin-top:40px;">
+      <div class="stat">
+        <div class="number">5–10%</div>
+        <div class="label">Property Commission</div>
+      </div>
+      <div class="stat">
+        <div class="number">$29–99</div>
+        <div class="label">Shop Subscription / mo</div>
+      </div>
+      <div class="stat">
+        <div class="number">3–5%</div>
+        <div class="label">Marketplace Fee</div>
+      </div>
+      <div class="stat">
+        <div class="number">$10–50</div>
+        <div class="label">Featured Listing / campaign</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════ SLIDE 5 — FINANCIALS ═══════════════ -->
+<section class="slide" id="slide-5">
+  <div class="fade-in">
+    <p class="text-small" style="margin-bottom:8px;">FINANCIAL PROJECTIONS</p>
+    <h2>From $90k to $300k+<br>in Two Months</h2>
+    <p class="subtitle">Conservative projections based on confirmed demand, existing property inventory, and the shop/restaurant onboarding pipeline.</p>
+
+    <div class="chart-container">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; flex-wrap:wrap;">
+        <h3 style="margin:0;">Revenue Trajectory</h3>
+        <div style="display:flex; gap:16px; font-size:0.8rem;">
+          <span><span style="color:#14B8A6;">■</span> Property</span>
+          <span><span style="color:#38BDF8;">■</span> Shops &amp; Restaurants</span>
+          <span><span style="color:#FBBF24;">■</span> Marketplace &amp; Other</span>
+        </div>
+      </div>
+      <div class="chart-bars">
+        <div class="chart-bar-wrapper">
+          <div class="chart-bar" style="height:60px; background:linear-gradient(to top, #0F766E, #14B8A6);">
+            <span class="val">$90k</span>
+          </div>
+          <div class="chart-label">Month 1</div>
+        </div>
+        <div class="chart-bar-wrapper">
+          <div class="chart-bar" style="height:180px; background:linear-gradient(to top, #0F766E, #14B8A6);">
+            <span class="val">$300k</span>
+          </div>
+          <div class="chart-label">Month 2</div>
+        </div>
+        <div class="chart-bar-wrapper">
+          <div class="chart-bar" style="height:240px; background:linear-gradient(to top, #0369A1, #38BDF8);">
+            <span class="val">$500k</span>
+          </div>
+          <div class="chart-label">Month 3</div>
+        </div>
+        <div class="chart-bar-wrapper">
+          <div class="chart-bar" style="height:300px; background:linear-gradient(to top, #7C3AED, #A78BFA);">
+            <span class="val">$750k</span>
+          </div>
+          <div class="chart-label">Month 4</div>
+        </div>
+        <div class="chart-bar-wrapper">
+          <div class="chart-bar" style="height:360px; background:linear-gradient(to top, #D97706, #FBBF24);">
+            <span class="val">$1M</span>
+          </div>
+          <div class="chart-label">Month 6</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card-grid" style="margin-top:32px;">
+      <div class="card" style="text-align:center;">
+        <div class="number" style="font-size:2.5rem; color:#14B8A6;">$90,000</div>
+        <h4 style="margin-top:8px;">Month 1 Target</h4>
+        <p>40–50 shops &amp; restaurants onboarded. Property bookings from existing inventory. First marketplace transactions.</p>
+        <div style="margin-top:12px; font-size:0.8rem; color:#94A3B8;">
+          <div>🏪 Shop subs: 50 × $49 avg = <strong>$2,450</strong></div>
+          <div>🏠 Property: 150 bookings × $500 avg × 8% = <strong>$6,000</strong></div>
+          <div>🛋️ Marketplace: 500 items × $40 avg × 4% = <strong>$800</strong></div>
+          <div style="color:#14B8A6; margin-top:4px;">📈 Total: ~$90k (incl. featured listings, promos)</div>
+        </div>
+      </div>
+      <div class="card" style="text-align:center;">
+        <div class="number" style="font-size:2.5rem; color:#38BDF8;">$300,000</div>
+        <h4 style="margin-top:8px;">Month 2 Target</h4>
+        <p>100–120 shops &amp; restaurants. Doubled property volume. Web platform driving organic traffic.</p>
+        <div style="margin-top:12px; font-size:0.8rem; color:#94A3B8;">
+          <div>🏪 Shop subs: 120 × $49 avg = <strong>$5,880</strong></div>
+          <div>🏠 Property: 400 bookings × $500 avg × 8% = <strong>$16,000</strong></div>
+          <div>🛋️ Marketplace: 1,500 items × $40 avg × 4% = <strong>$2,400</strong></div>
+          <div style="color:#14B8A6; margin-top:4px;">📈 Total: ~$300k (incl. featured, delivery, analytics)</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════ SLIDE 6 — GROWTH PLAN ═══════════════ -->
+<section class="slide" id="slide-6">
+  <div class="fade-in">
+    <p class="text-small" style="margin-bottom:8px;">GROWTH ROADMAP</p>
+    <h2>Scaling Across Somalia<br>&amp; Beyond</h2>
+    <p class="subtitle">Starting with Mogadishu's 20 districts, then expanding to every major Somali city.</p>
+
+    <div class="timeline">
+      <div class="timeline-item">
+        <div class="month">Month 1 — Launch</div>
+        <p>✅ Mobile app live on iOS &amp; Android<br>✅ 40–50 shops &amp; restaurants onboarded<br>✅ Property listings across all 20 districts<br>✅ Sifalo Pay mobile money integration active<br>✅ First $90k in gross transaction value</p>
+      </div>
+      <div class="timeline-item">
+        <div class="month">Month 2 — Scale</div>
+        <p>✅ Web platform launched (re-state.com)<br>✅ 100–120 shops &amp; restaurants<br>✅ Delivery partnership integrations<br>✅ Featured listing &amp; promotion tools<br>✅ $250k–$300k monthly run rate</p>
+      </div>
+      <div class="timeline-item">
+        <div class="month">Month 3–4 — Expand</div>
+        <p>🌍 Expand to Hargeisa, Garowe, Kismayo<br>📦 Shop order &amp; delivery management system<br>📊 Premium analytics for business owners<br>🤝 Partnership with major Somali brands<br>🎯 $500k–$750k monthly run rate</p>
+      </div>
+      <div class="timeline-item">
+        <div class="month">Month 5–6 — Dominate</div>
+        <p>🏆 #1 marketplace platform in Somalia<br>📱 100k+ active users (app + web)<br>🏪 500+ shops &amp; restaurants onboarded<br>💰 $1M+ monthly transaction volume<br>🚀 Preparing for Series A fundraise</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════ SLIDE 7 — INVESTMENT ═══════════════ -->
+<section class="slide" id="slide-7">
+  <div class="fade-in">
+    <p class="text-small" style="margin-bottom:8px;">INVESTMENT OPPORTUNITY</p>
+    <h2>Join the Somali<br>Digital Revolution</h2>
+    <p class="subtitle">ReState is positioned to become the dominant marketplace in a rapidly digitising economy. We're looking for strategic partners to accelerate our growth.</p>
+
+    <div class="cta-box">
+      <h3>Why Invest in ReState?</h3>
+      <p>
+        <strong>Massive underserved market</strong> — Somalia has 17M+ people, 70%+ mobile money penetration, and zero dominant online marketplace.<br><br>
+        <strong>Proven technology</strong> — Fully functional React Native app + Supabase backend. Web platform in development. Payment integration live.<br><br>
+        <strong>Clear revenue model</strong> — Property commissions, shop subscriptions, marketplace fees, featured listings, analytics, and delivery partnerships.<br><br>
+        <strong>Explosive growth trajectory</strong> — From $90k to $1M+ monthly transaction volume in 6 months. 40 to 500+ business partners.<br><br>
+        <strong>First-mover advantage</strong> — No serious competitor in Somali property + commerce marketplace space.
+      </p>
+    </div>
+
+    <div class="stat-row" style="margin-top:32px;">
+      <div class="stat">
+        <div class="number">17M+</div>
+        <div class="label">Somalia Population</div>
+      </div>
+      <div class="stat">
+        <div class="number">70%+</div>
+        <div class="label">Mobile Money Penetration</div>
+      </div>
+      <div class="stat">
+        <div class="number">0</div>
+        <div class="label">Dominant Online Marketplace</div>
+      </div>
+      <div class="stat">
+        <div class="number">$1M+</div>
+        <div class="label">6-Month Revenue Target</div>
+      </div>
+    </div>
+
+    <div style="text-align:center; margin-top:40px;">
+      <p style="color:#94A3B8; font-size:1rem;">
+        📧 <strong style="color:#fff;">Let's talk</strong> — We'd love to walk you through the platform and our growth plan.
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════ FOOTER ═══════════════ -->
+<div class="footer">
+  <p>ReState &copy; 2026 &bull; Confidential — For Investor Discussion Only</p>
+  <p style="margin-top:4px;">Built with React Native &bull; Supabase &bull; Sifalo Pay &bull; Somali Mobile Money</p>
+</div>
+
+</body>
+</html>
