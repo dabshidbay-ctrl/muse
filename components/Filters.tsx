@@ -1,7 +1,8 @@
 import { useMemo, useState } from "react";
-import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { Image, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { Chip, Touchable } from "@/components/ui";
-import { MIN_TAP, SPACE } from "@/lib/responsive";
+import { MIN_TAP, SPACE, shadow } from "@/lib/responsive";
+import icons from "@/constants/icons";
 import type { PropertyFilters, PropertyType } from "@/lib/types";
 import { categories, districts } from "@/constants/data";
 
@@ -76,19 +77,39 @@ export function DistrictSelect({
     close();
   };
 
+  // A modern list row, not a plain text line: a letter badge on the left
+  // makes a 20-item alphabetical list scannable, a filled check badge on
+  // the right makes the selection unmistakable, and the selected row gets
+  // a brand border instead of only a pale fill (which vanished in dark
+  // mode before the primary-100 theme variables landed).
   const row = (key: string, label: string, selected: boolean, onPress: () => void) => (
     <Touchable
       key={key}
       onPress={onPress}
       accessibilityLabel={`${label}${selected ? ", selected" : ""}`}
       accessibilityState={{ selected }}
-      style={{ minHeight: MIN_TAP }}
-      className={`flex-row items-center justify-between rounded-md px-md ${
-        selected ? "bg-primary-100" : "bg-transparent"
+      style={{ minHeight: 56 }}
+      className={`hover-surface flex-row items-center gap-sm rounded-lg border px-sm py-2xs ${
+        selected
+          ? "border-primary-300 bg-primary-100"
+          : "border-transparent bg-transparent"
       }`}
     >
+      <View
+        className={`size-8 items-center justify-center rounded-full ${
+          selected ? "bg-primary-300" : "bg-surface-muted dark:bg-surface-dark-muted"
+        }`}
+      >
+        <Text
+          className={`text-caption font-rubik-bold ${
+            selected ? "text-white" : "text-primary-300"
+          }`}
+        >
+          {label.charAt(0)}
+        </Text>
+      </View>
       <Text
-        className={`text-body ${
+        className={`flex-1 text-body ${
           selected
             ? "font-rubik-semibold text-primary-300"
             : "font-rubik text-black-300 dark:text-white"
@@ -97,7 +118,9 @@ export function DistrictSelect({
         {label}
       </Text>
       {selected ? (
-        <Text className="text-body font-rubik-bold text-primary-300">✓</Text>
+        <View className="size-6 items-center justify-center rounded-full bg-primary-300">
+          <Text className="text-caption font-rubik-bold text-white">✓</Text>
+        </View>
       ) : null}
     </Touchable>
   );
@@ -116,9 +139,16 @@ export function DistrictSelect({
             : "border-line dark:border-line-dark bg-surface dark:bg-surface-dark-muted"
         }`}
       >
+        <Image
+          source={icons.location}
+          style={{ width: 16, height: 16 }}
+          tintColor={selectedLabel ? "#0061FF" : "#8C8E98"}
+          accessible={false}
+          alt=""
+        />
         <Text
           numberOfLines={1}
-          className={`text-caption ${
+          className={`ml-2xs flex-1 text-caption ${
             selectedLabel
               ? "font-rubik-semibold text-primary-300"
               : "font-rubik-medium text-black-200 dark:text-white/70"
@@ -159,46 +189,66 @@ export function DistrictSelect({
             // 80% of the viewport rather than a fixed 520: on a tall phone that
             // is five more districts visible without scrolling, and on a short
             // one the sheet still fits.
-            style={{ width: "100%", maxWidth: 420, maxHeight: "80%" }}
-            className="rounded-lg bg-surface dark:bg-surface-dark-elevated p-md"
+            style={{
+              width: "100%",
+              maxWidth: 420,
+              maxHeight: "80%",
+              overflow: "hidden",
+              ...shadow({ color: "#000000", opacity: 0.22, radius: 28, offsetY: 16, elevation: 8 }),
+            }}
+            className="rounded-xl border border-line dark:border-line-dark bg-surface dark:bg-surface-dark-elevated p-md"
           >
-            <View className="flex-row items-center justify-between">
-              <Text
-                accessibilityRole="header"
-                className="text-lead font-rubik-bold text-black-300 dark:text-white"
-              >
-                District
-              </Text>
+            <View className="flex-row items-start justify-between gap-sm">
+              <View className="flex-1">
+                <Text
+                  accessibilityRole="header"
+                  className="text-h2 font-rubik-extrabold text-black-300 dark:text-white"
+                >
+                  Choose a district
+                </Text>
+                <Text className="text-caption font-rubik text-black-200 dark:text-white/60 mt-2xs">
+                  Mogadishu · {districts.length} districts
+                </Text>
+              </View>
               <Touchable
                 onPress={close}
                 accessibilityLabel="Close district list"
                 style={{ minWidth: MIN_TAP, minHeight: MIN_TAP }}
-                className="items-center justify-center rounded-full"
+                className="items-center justify-center rounded-full bg-surface-muted dark:bg-surface-dark-muted"
               >
-                <Text className="text-lead font-rubik-bold text-black-200 dark:text-white/70">
+                <Text className="text-body font-rubik-bold text-black-200 dark:text-white/70">
                   ✕
                 </Text>
               </Touchable>
             </View>
 
-            <TextInput
-              value={q}
-              onChangeText={setQ}
-              placeholder="Search districts"
-              placeholderTextColor="#8C8E98"
-              accessibilityLabel="Search districts"
-              autoCorrect={false}
-              className="mt-xs rounded-md border border-line dark:border-line-dark bg-surface-muted dark:bg-surface-dark-muted px-md py-sm text-body font-rubik text-black-300 dark:text-white"
-            />
+            <View className="mt-md flex-row items-center gap-xs rounded-full border border-line dark:border-line-dark bg-surface-muted dark:bg-surface-dark-muted px-md">
+              <Image
+                source={icons.search}
+                style={{ width: 18, height: 18 }}
+                tintColor="#8C8E98"
+                accessible={false}
+                alt=""
+              />
+              <TextInput
+                value={q}
+                onChangeText={setQ}
+                placeholder="Search districts"
+                placeholderTextColor="#8C8E98"
+                accessibilityLabel="Search districts"
+                autoCorrect={false}
+                className="flex-1 py-sm text-body font-rubik text-black-300 dark:text-white"
+              />
+            </View>
 
             <ScrollView
               // React Native's flexShrink defaults to 0, so without this the
               // list overflows the sheet's maxHeight and is simply clipped —
               // the last districts become unreachable instead of scrollable.
-              style={{ flexShrink: 1, marginTop: SPACE.xs }}
+              style={{ flexShrink: 1, marginTop: SPACE.sm }}
               keyboardShouldPersistTaps="handled"
               showsVerticalScrollIndicator
-              contentContainerStyle={{ paddingVertical: SPACE.xs, gap: 2 }}
+              contentContainerStyle={{ paddingVertical: SPACE.xs, gap: 4 }}
             >
               {/* Always offered, and never filtered out by the search box: it is
                   the way back to an unfiltered list. */}
@@ -213,6 +263,13 @@ export function DistrictSelect({
                 </Text>
               ) : null}
             </ScrollView>
+            <View className="border-t border-line dark:border-line-dark pt-xs mt-xs">
+              <Text className="text-caption font-rubik text-black-200 dark:text-white/60">
+                {needle
+                  ? `${matches.length} district${matches.length === 1 ? "" : "s"} match “${q.trim()}”`
+                  : `Tap a district to filter · ${districts.length} in Mogadishu`}
+              </Text>
+            </View>
           </View>
         </View>
       </Modal>
