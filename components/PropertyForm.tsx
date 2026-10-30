@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { ScrollView, Text, TextInput, View } from "react-native";
 import { router } from "expo-router";
 import { useSession } from "@/lib/useSession";
-import { supabase } from "@/lib/supabase";
+import { describeSupabaseError, supabase } from "@/lib/supabase";
 import {
   createProperty,
   getPropertyPhotos,
@@ -371,10 +371,11 @@ export default function PropertyForm({
       if (!initial) router.replace(`/properties/${saved.id}`);
     } catch (err) {
       captureError(err, "listing-save");
+      // Supabase errors are plain objects, not Error instances — checking
+      // `instanceof Error` threw their real message away and showed only
+      // "Please try again.", which is how the last retry hid the cause.
       setFormError(
-        `${initial ? "Could not save changes" : "Could not publish listing"}: ${
-          err instanceof Error ? err.message : "Please try again."
-        }`
+        `${initial ? "Could not save changes" : "Could not publish listing"}: ${describeSupabaseError(err)}`
       );
     } finally {
       setSaving(false);
