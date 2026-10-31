@@ -29,17 +29,6 @@ const TYPES = categories.filter(
 
 const isRemote = (uri: string) => /^https?:\/\//i.test(uri);
 
-/**
- * The in-unit features a renter filters on, in the order they matter.
- *
- * These are stored in `properties.facilities` (a text[] on the row) rather than
- * in the free-form amenities table, because they are a fixed, comparable set:
- * "does this flat have a lift" is a yes/no question across every listing, while
- * amenities are whatever the owner wants to mention. Keeping them here means
- * the detail page can render them with icons and a search can rely on them.
- */
-const FEATURES = ["Balcony", "Elevator", "CCTV Camera", "Security"] as const;
-
 function Field({
   label,
   value,
@@ -537,17 +526,11 @@ export default function PropertyForm({
         </View>
       </View>
 
-      {/* The four features renters actually filter on. Stored on the row's
-          `facilities` array so the detail page can render them with icons. */}
-      <ChipGroup
-        label="Features"
-        options={[...FEATURES]}
-        selected={picked}
-        onToggle={(v) =>
-          setPicked((p) => (p.includes(v) ? p.filter((x) => x !== v) : [...p, v]))
-        }
-      />
-
+      {/* One Facilities group only. There used to be a separate "Features"
+          group writing to this same array, so the form showed two groups for
+          one stored list and the detail page could only render it under one
+          heading. FACILITIES (constants/data) is the single list, and every
+          entry there has a real icon, so nothing falls back to a generic one. */}
       <ChipGroup
         label="Facilities"
         options={FACILITIES.map((f) => f.title)}

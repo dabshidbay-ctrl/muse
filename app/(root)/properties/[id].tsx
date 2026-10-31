@@ -24,6 +24,7 @@ import { AvailabilityCalendar, isRangeAvailable } from "@/components/Availabilit
 import { PropertyGallery } from "@/components/PropertyGallery";
 import { shareProperty } from "@/lib/share";
 import icons from "@/constants/icons";
+import { districts, facilities as FACILITIES_DATA } from "@/constants/data";
 import { captureError } from "@/lib/sentry";
 import type { Role } from "@/lib/types";
 
@@ -39,16 +40,14 @@ const ROLE_LABEL: Record<Role, string> = {
   admin: "Administrator",
 };
 
-const FACILITY_ICONS: Record<string, any> = {
-  Laundry: icons.laundry,
-  "Car Parking": icons.carPark,
-  "Sports Center": icons.run,
-  Cutlery: icons.cutlery,
-  Gym: icons.dumbell,
-  "Swimming pool": icons.swim,
-  Wifi: icons.wifi,
-  "Pet Center": icons.dog,
-};
+// Single source of truth: the icon map is built from the same facilities
+// list the form offers, so form and detail can never drift apart and a
+// facility can never fall back to a generic icon. Values from older listings
+// that are not in this map are rendered as pills below, never with a wrong
+// or generic icon, and nothing is dropped.
+const FACILITY_ICONS: Record<string, any> = Object.fromEntries(
+  FACILITIES_DATA.map((f) => [f.title, f.icon])
+);
 
 function Stat({ icon, value, label }: { icon: any; value: string | number; label: string }) {
   return (
@@ -445,6 +444,17 @@ export default function Property() {
               {property.address}
             </Text>
           ) : null}
+          {/* The district is a form field, so it must show here — previously
+              it was saved but never rendered, and only survived inside the
+              free-text address. */}
+          {property.district ? (
+            <View className="flex-row items-center gap-2xs mt-2xs">
+              <Image source={icons.location} style={{ width: 16, height: 16 }} accessible={false} alt="" />
+              <Text className="text-caption font-rubik-medium text-black-200 dark:text-white/60">
+                {districts.find((d) => d.value === property.district)?.label ?? property.district}, Mogadishu
+              </Text>
+            </View>
+          ) : null}
 
           {/* Square footage is deliberately not shown: renters here compare
               rooms and features, and an area figure that owners estimate by eye
@@ -541,67 +551,98 @@ export default function Property() {
             </>
           ) : null}
 
-          {property.facilities?.length ? (
-            <>
-              <SectionHeader title="Facilities" />
-              <View className="flex-row flex-wrap gap-md">
-                {property.facilities.map((f) => (
-                  <View key={f} className="items-center w-20">
-                    <View className="size-14 rounded-full bg-surface-muted dark:bg-surface-dark-elevated items-center justify-center">
-                      <Image
-                        source={FACILITY_ICONS[f] ?? icons.info}
-                        style={{ width: 24, height: 24 }}
-                        accessible={false}
-                        alt=""
-                      />
+          {(() => {
+            // Dedupe at render time: a value must never appear twice on the
+            // page, even if an older listing stored it in two places.
+            const uniqueFacilities = [...new Set(property.facilities ?? [])];
+            const iconFacilities = uniqueFacilities.filter((f) => FACILITY_ICONS[f]);
+            const extraFacilities = uniqueFacilities.filter((f) => !FACILITY_ICONS[f]);
+            const uniqueAmenities = [
+              ...new Map(
+                (property.amenities ?? []).map((a) => [a.name.toLowerCase(), a])
+              ).values(),
+            ];
+            const uniqueNearby = [...new Set(property.nearby_facilities ?? [])];
+            return (
+              <>
+                {uniqueFacilities.length ? (
+                  <>
+                    <SectionHeader title="Facilities" />
+                    <View className="flex-row flex-wrap gap-md">
+                      {iconFacilities.map((f) => (
+                        <View key={f} className="items-center w-20">
+                          <View className="size-14 rounded-full bg-surface-muted dark:bg-surface-dark-elevated items-center justify-center">
+                            <Image
+                              source={FACILITY_ICONS[f]}
+                              style={{ width: 24, height: 24 }}
+                              accessible={false}
+                              alt=""
+                            />
+                          </View>
+                          <Text
+                            numberOfLines={2}
+                            className="text-caption font-rubik text-black-200 dark:text-white/60 text-center mt-2xs"
+                          >
+                            {f}
+                          </Text>
+                        </View>
+                      ))}
                     </View>
-                    <Text
-                      numberOfLines={2}
-                      className="text-caption font-rubik text-black-200 dark:text-white/60 text-center mt-2xs"
-                    >
-                      {f}
-                    </Text>
-                  </View>
-                ))}
-              </View>
-            </>
-          ) : null}
+                    {extraFacilities.length ? (
+                      <View className="flex-row flex-wrap gap-xs mt-md">
+                        {extraFacilities.map((f) => (
+                          <View
+                            key={f}
+                            className="rounded-full bg-surface-muted dark:bg-surface-dark-elevated px-sm py-2xs"
+                          >
+                            <Text className="text-caption font-rubik-medium text-black-200 dark:text-white/60">
+                              {f}
+                            </Text>
+                          </View>
+                        ))}
+                      </View>
+                    ) : null}
+                  </>
+                ) : null}
 
-          {property.amenities?.length ? (
-            <>
-              <SectionHeader title="Amenities" />
-              <View className="flex-row flex-wrap gap-xs">
-                {property.amenities.map((a) => (
-                  <View
-                    key={a.id}
-                    className="rounded-full bg-primary-100 px-sm py-2xs"
-                  >
-                    <Text className="text-caption font-rubik-medium text-primary-300">
-                      {a.name}
-                    </Text>
-                  </View>
-                ))}
-              </View>
-            </>
-          ) : null}
+                {uniqueAmenities.length ? (
+                  <>
+                    <SectionHeader title="Amenities" />
+                    <View className="flex-row flex-wrap gap-xs">
+                      {uniqueAmenities.map((a) => (
+                        <View
+                          key={a.id}
+                          className="rounded-full bg-primary-100 px-sm py-2xs"
+                        >
+                          <Text className="text-caption font-rubik-medium text-primary-300">
+                            {a.name}
+                          </Text>
+                        </View>
+                      ))}
+                    </View>
+                  </>
+                ) : null}
 
-          {property.nearby_facilities?.length ? (
-            <>
-              <SectionHeader title="Nearby facilities" />
-              <View className="flex-row flex-wrap gap-xs">
-                {property.nearby_facilities.map((n) => (
-                  <View
-                    key={n}
-                    className="rounded-full bg-surface-muted dark:bg-surface-dark-elevated px-sm py-2xs"
-                  >
-                    <Text className="text-caption font-rubik-medium text-black-200 dark:text-white/60">
-                      {n}
-                    </Text>
-                  </View>
-                ))}
-              </View>
-            </>
-          ) : null}
+                {uniqueNearby.length ? (
+                  <>
+                    <SectionHeader title="Nearby facilities" />
+                    <View className="flex-row flex-wrap gap-xs">
+                      {uniqueNearby.map((n) => (
+                        <View
+                          key={n}
+                          className="rounded-full bg-surface-muted dark:bg-surface-dark-elevated px-sm py-2xs"
+                        >
+                          <Text className="text-caption font-rubik-medium text-black-200 dark:text-white/60">
+                            {n}
+                          </Text>
+                        </View>
+                      ))}
+                    </View>
+                  </>
+                ) : null}
+              </>
+            );
+          })()}
 
           {property.reviews?.length ? (
             <>

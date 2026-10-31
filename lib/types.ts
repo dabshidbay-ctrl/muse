@@ -102,7 +102,7 @@ export type Property = {
   floor_number: number | null;
   rating: number;
   facilities: string[];
-  /** Nearby facilities (e.g. Elevator, CCTV Camera, Balcony, Security, Parking). */
+  /** Nearby places (e.g. School, Hospital, Supermarket, Mosque) — never a duplicate of a Facility or Amenity. */
   nearby_facilities: string[];
   /** 'monthly' is a fixed monthly rental; 'short_term' is BnB-style nightly. */
   rental_mode: RentalMode;

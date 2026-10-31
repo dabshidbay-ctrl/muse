@@ -128,16 +128,30 @@ export const facilities = [
     title: "Pet Center",
     icon: icons.dog,
   },
+  // In-unit features that also have a real icon, so they belong here and not
+  // in the free-text amenities list (which would show the same item twice on
+  // the detail page, once as a tile and once as a pill). This list is the
+  // single source of truth: the form offers exactly these, and the detail
+  // page builds its icon map from exactly these, so a facility can never
+  // fall back to a generic icon on detail.
+  {
+    title: "Balcony",
+    icon: icons.home,
+  },
+  {
+    title: "Security",
+    icon: icons.shield,
+  },
 ];
 
 // In-unit amenities an owner can add/remove per property. These are stored in
 // the dedicated `amenities` table (not the `facilities` text array).
+// Amenities are pills with no icon, so they must not repeat anything that
+// already appears as an icon tile under Facilities (Balcony, Security, Car
+// Parking) — otherwise the same feature shows twice on the detail page.
 export const amenities = [
   "Elevator",
   "CCTV Camera",
-  "Balcony",
-  "Security",
-  "Parking",
   "Air Conditioning",
   "Heating",
   "Furnished",
@@ -158,7 +172,6 @@ export const nearbyFacilities = [
   "Pharmacy",
   "Bank",
   "Restaurant",
-  "Gym",
   "Mall",
   "Mosque",
 ];
