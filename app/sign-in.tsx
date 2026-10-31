@@ -496,18 +496,28 @@ const SignIn = () => {
                                                 // Width belongs to the outer
                                                 // Pressable; the inner view
                                                 // paints the pill and fills it.
-                                                style={{ flex: 1, minHeight: 44 }}
+                                                // Big and unmissable: at 12px
+                                                // caption size these two
+                                                // options read as fine print
+                                                // and users missed the switch
+                                                // entirely, so they are full
+                                                // body size now, and the
+                                                // selected one is solid
+                                                // primary blue with white
+                                                // text instead of a faint
+                                                // surface change.
+                                                style={{ flex: 1, minHeight: 56 }}
                                                 className={`items-center justify-center rounded-full ${
                                                     mode === value
-                                                        ? 'bg-surface dark:bg-surface-dark-elevated'
+                                                        ? 'bg-primary-300'
                                                         : ''
                                                 }`}
                                             >
                                                 <Text
-                                                    className={`text-caption ${
+                                                    className={`text-body ${
                                                         mode === value
-                                                            ? 'font-rubik-bold text-black-300 dark:text-white'
-                                                            : 'font-rubik-medium text-black-200 dark:text-white/60'
+                                                            ? 'font-rubik-bold text-white'
+                                                            : 'font-rubik-medium text-black-200 dark:text-white/70'
                                                     }`}
                                                 >
                                                     {label}
@@ -701,12 +711,12 @@ const SignIn = () => {
                                             busy: busy === 'email',
                                         }}
                                         className="items-center justify-center rounded-full bg-primary-300 py-md"
-                                        style={{ minHeight: 56, marginTop: SPACE.lg }}
+                                        style={{ minHeight: 60, marginTop: SPACE.lg }}
                                     >
                                         {busy === 'email' ? (
                                             <ActivityIndicator size="small" color="#FFFFFF" />
                                         ) : (
-                                            <Text className="text-body font-rubik-semibold text-white">
+                                            <Text className="text-lead font-rubik-bold text-white">
                                                 {isSignUp ? 'Create account' : 'Sign in'}
                                             </Text>
                                         )}
@@ -731,7 +741,7 @@ const SignIn = () => {
                                         }}
                                         className="flex-row items-center justify-center gap-sm rounded-full bg-surface dark:bg-surface-dark-elevated border border-line dark:border-line-dark py-md"
                                         style={{
-                                            minHeight: 56,
+                                            minHeight: 60,
                                             marginTop: SPACE.lg,
                                             ...shadow({ opacity: 0.12, radius: 16, offsetY: 8, elevation: 3 }),
                                         }}
