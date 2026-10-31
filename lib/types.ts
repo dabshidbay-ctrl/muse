@@ -93,6 +93,9 @@ export type Property = {
   address: string | null;
   geolocation: string | null;
   price: number;
+  /** One-time service fee in USD, set by the owner in the form; 0 / null
+      means no fee. Shown on the detail page and added to a booking total. */
+  service_fee: number | null;
   area: number;
   bedrooms: number;
   bathrooms: number;
@@ -194,6 +197,9 @@ export type Booking = {
   guests: number;
   total_price: number;
   status: BookingStatus;
+  /** True for a tour request, not a stay: it must not block the calendar,
+      must never be charged, and shows as "Tour" in the bookings list. */
+  is_tour: boolean;
   message: string | null;
   payment_status: PaymentStatus;
   sifalo_sid: string | null;

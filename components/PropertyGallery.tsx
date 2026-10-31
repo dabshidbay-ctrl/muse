@@ -8,7 +8,8 @@ import {
   type NativeScrollEvent,
   type NativeSyntheticEvent,
 } from "react-native";
-import { Skeleton } from "@/components/ui";
+import { IconButton, Skeleton } from "@/components/ui";
+import icons from "@/constants/icons";
 import { captureError } from "@/lib/sentry";
 import { shadow } from "@/lib/responsive";
 
@@ -194,6 +195,19 @@ export function PropertyGallery({ images, height }: { images: string[]; height: 
 
   const single = images.length === 1;
 
+  // Carousel arrows: swiping is not obvious on a desktop browser, and a
+  // photo row with no visible way forward reads as a single photo. The
+  // arrows wrap around, and stay in step with swipes via onScroll.
+  const goTo = useCallback(
+    (next: number) => {
+      if (single || !width) return;
+      const target = (next + images.length) % images.length;
+      setIndex(target);
+      listRef.current?.scrollToIndex({ index: target, animated: true });
+    },
+    [single, width, images.length]
+  );
+
   return (
     <View style={{ height }} onLayout={onLayout} className="relative overflow-hidden">
       {width > 0 ? (
@@ -218,6 +232,28 @@ export function PropertyGallery({ images, height }: { images: string[]; height: 
 
       {!single ? (
         <>
+          {/* Previous / next arrows, vertically centred over the photo. */}
+          <View
+            pointerEvents="box-none"
+            className="absolute left-sm right-sm flex-row items-center justify-between"
+            style={{ top: height / 2 - 22 }}
+          >
+            <IconButton
+              icon={icons.backArrow}
+              label="Previous photo"
+              onPress={() => goTo(index - 1)}
+              tintColor="#FFFFFF"
+              className="bg-black/50"
+            />
+            <IconButton
+              icon={icons.rightArrow}
+              label="Next photo"
+              onPress={() => goTo(index + 1)}
+              tintColor="#FFFFFF"
+              className="bg-black/50"
+            />
+          </View>
+
           {/* A bottom scrim, stacked rather than a gradient because
               expo-linear-gradient is not a dependency and one more native
               module is not worth a single fade. Enough bands that the steps

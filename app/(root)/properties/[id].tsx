@@ -22,6 +22,7 @@ import { SPACE, shadow, useResponsive } from "@/lib/responsive";
 import { EmptyState, IconButton, SectionHeader, Skeleton, Touchable } from "@/components/ui";
 import { AvailabilityCalendar, isRangeAvailable } from "@/components/AvailabilityCalendar";
 import { PropertyGallery } from "@/components/PropertyGallery";
+import { Stepper } from "@/components/Stepper";
 import { shareProperty } from "@/lib/share";
 import icons from "@/constants/icons";
 import { districts, facilities as FACILITIES_DATA } from "@/constants/data";
@@ -30,6 +31,30 @@ import type { Role } from "@/lib/types";
 
 const money = (n: number) =>
   `$${Number(n).toLocaleString("en-US", { maximumFractionDigits: 0 })}`;
+
+/** Strict yyyy-mm-dd, and a real calendar date (not 2026-02-30). */
+const isValidDate = (v: string) => {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(v)) return false;
+  const d = new Date(`${v}T00:00:00Z`);
+  return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === v;
+};
+
+/** Add whole calendar months to a yyyy-mm-dd date (rent is monthly, never
+    a count of nights). */
+const addMonthsISO = (iso: string, months: number) => {
+  const d = new Date(`${iso}T00:00:00Z`);
+  d.setUTCMonth(d.getUTCMonth() + months);
+  return d.toISOString().slice(0, 10);
+};
+
+const todayISO = () => new Date().toISOString().slice(0, 10);
+
+/** Add whole days to a yyyy-mm-dd date. */
+const addDaysISO = (iso: string, days: number) => {
+  const d = new Date(`${iso}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().slice(0, 10);
+};
 
 /** Human labels for the publisher roles, used by the admin-only poster panel. */
 const ROLE_LABEL: Record<Role, string> = {
@@ -249,11 +274,9 @@ export default function Property() {
         checkIn,
         checkOut,
         guests: g,
-        // Short-term is priced per night; monthly is pro-rated per night.
-        totalPrice:
-          property.rental_mode === "short_term"
-            ? Math.round(Number(property.price) * nights)
-            : Math.round((Number(property.price) / 30) * nights),
+        // Daily rentals are priced per night, plus the one-time service fee.
+        // (Monthly rentals no longer use this path — see submitRent.)
+        totalPrice: Math.round(Number(property.price) * nights) + (property.service_fee ?? 0),
       });
       setBookingOpen(false);
       setCheckIn(null);
@@ -270,6 +293,105 @@ export default function Property() {
       setSubmitting(false);
     }
   }, [user?.id, property, checkIn, checkOut, guestCount, nights, booked, refetchBooked]);
+
+  // --- Monthly rent: months, not nights ----------------------------------
+  // A monthly rental is rented for at least 1 month, so the rent sheet never
+  // shows a day-range calendar — that is for daily (short-term) rentals only.
+  const [moveIn, setMoveIn] = useState("");
+  const [months, setMonths] = useState(1);
+  const [rentSent, setRentSent] = useState(false);
+  const [rentError, setRentError] = useState<string | null>(null);
+  const serviceFee = property ? (property.service_fee ?? 0) : 0;
+  const rentEnd = moveIn && isValidDate(moveIn) ? addMonthsISO(moveIn, months) : null;
+  const rentTotal = property ? Math.round(Number(property.price) * months) + serviceFee : 0;
+
+  const submitRent = useCallback(async () => {
+    if (!user?.id || !property) return;
+    if (!isValidDate(moveIn)) {
+      setRentError("Enter a move-in date as YYYY-MM-DD, for example 2026-12-01.");
+      return;
+    }
+    if (moveIn < todayISO()) {
+      setRentError("The move-in date cannot be in the past.");
+      return;
+    }
+    if (!rentEnd || !isRangeAvailable(booked, moveIn, rentEnd)) {
+      setRentError("Those months overlap an existing booking. Pick a different move-in date.");
+      return;
+    }
+    const g = Number(guestCount);
+    if (!Number.isInteger(g) || g < 1) {
+      setRentError("Guests must be a whole number of 1 or more.");
+      return;
+    }
+    setRentError(null);
+    setSubmitting(true);
+    try {
+      const created = await createBooking(supabase, {
+        propertyId: property.id,
+        guestId: user.id,
+        ownerId: property.owner_id ?? null,
+        checkIn: moveIn,
+        checkOut: rentEnd,
+        guests: g,
+        totalPrice: rentTotal,
+      });
+      void refetchBooked();
+      setLastBookingId(created.id);
+      setRentSent(true);
+    } catch (err) {
+      captureError(err, "rent-create");
+      setRentError(describeSupabaseError(err));
+    } finally {
+      setSubmitting(false);
+    }
+  }, [user?.id, property, moveIn, rentEnd, rentTotal, guestCount, booked, refetchBooked]);
+
+  // --- Book a tour (monthly only) ----------------------------------------
+  // A tour is a bookings row with is_tour = true: the owner sees it in
+  // Requests and can confirm or decline it, the guest sees it in My
+  // bookings, but it never blocks the calendar and is never charged.
+  const [tourOpen, setTourOpen] = useState(false);
+  const [tourDate, setTourDate] = useState("");
+  const [tourMessage, setTourMessage] = useState("");
+  const [tourSent, setTourSent] = useState(false);
+  const [tourError, setTourError] = useState<string | null>(null);
+
+  const submitTour = useCallback(async () => {
+    if (!user?.id || !property) return;
+    if (!isValidDate(tourDate)) {
+      setTourError("Enter a tour date as YYYY-MM-DD, for example 2026-12-01.");
+      return;
+    }
+    if (tourDate < todayISO()) {
+      setTourError("The tour date cannot be in the past.");
+      return;
+    }
+    setTourError(null);
+    setSubmitting(true);
+    try {
+      const created = await createBooking(supabase, {
+        propertyId: property.id,
+        guestId: user.id,
+        ownerId: property.owner_id ?? null,
+        checkIn: tourDate,
+        checkOut: addDaysISO(tourDate, 1),
+        guests: 1,
+        totalPrice: 0,
+        message: tourMessage.trim() ? `Tour request: ${tourMessage.trim()}` : "Tour request",
+        isTour: true,
+      });
+      // check_out must be after check_in, so a tour occupies a 1-day window
+      // in the row itself — but is_tour rows are excluded from booked ranges,
+      // so that window never greys out on the calendar.
+      setTourSent(true);
+    } catch (err) {
+      captureError(err, "tour-create");
+      setTourError(describeSupabaseError(err));
+    } finally {
+      setSubmitting(false);
+    }
+  }, [user?.id, property, tourDate, tourMessage]);
 
   if (loading) {
     return (
@@ -566,6 +688,33 @@ export default function Property() {
             </>
           ) : null}
 
+          {serviceFee > 0 ? (
+            <View className="mt-lg p-md rounded-lg bg-surface-muted dark:bg-surface-dark-elevated">
+              <Text className="text-caption font-rubik-bold text-black-300 dark:text-white uppercase">
+                Price
+              </Text>
+              <View className="flex-row items-center justify-between mt-xs">
+                <Text className="text-body font-rubik text-black-200 dark:text-white/70">
+                  {property.rental_mode === "short_term" ? "Per night" : "Per month"}
+                </Text>
+                <Text className="text-body font-rubik-extrabold text-black-300 dark:text-white">
+                  {money(property.price)}
+                </Text>
+              </View>
+              <View className="flex-row items-center justify-between mt-xs">
+                <Text className="text-body font-rubik text-black-200 dark:text-white/70">
+                  Service fee (one-time)
+                </Text>
+                <Text className="text-body font-rubik-extrabold text-black-300 dark:text-white">
+                  {money(serviceFee)}
+                </Text>
+              </View>
+              <Text className="text-caption font-rubik text-black-100 dark:text-white/40 mt-xs">
+                The service fee is charged once, with the first payment.
+              </Text>
+            </View>
+          ) : null}
+
           {property.description ? (
             <>
               <SectionHeader title="Overview" />
@@ -725,37 +874,81 @@ export default function Property() {
               {money(property.price)}
             </Text>
           </View>
-          <Touchable
-            onPress={() => {
-              // Booking needs an account, and the submit handler silently
-              // returns without one — so a public visitor is sent to
-              // sign-in here, instead of opening a form that can never send.
-              if (!user?.id) {
-                router.push("/sign-in");
-                return;
+          {property.rental_mode === "monthly" && !isOwnListing ? (
+            // Monthly rentals are Rent + Book a tour — never "Book" for days.
+            // A visitor is sent to sign-in by either button, instead of
+            // opening a form that can never send.
+            <View className="flex-row gap-xs">
+              <Touchable
+                onPress={() => {
+                  if (!user?.id) {
+                    router.push("/sign-in");
+                    return;
+                  }
+                  setTourSent(false);
+                  setTourOpen(true);
+                }}
+                accessibilityLabel={`Book a tour of ${property.name}`}
+                className="items-center justify-center rounded-full border border-primary-300 py-md"
+                style={{ width: 130, minHeight: 48 }}
+              >
+                <Text className="text-body font-rubik-bold text-primary-300">Book a tour</Text>
+              </Touchable>
+              <Touchable
+                onPress={() => {
+                  if (!user?.id) {
+                    router.push("/sign-in");
+                    return;
+                  }
+                  setRentSent(false);
+                  setBookingOpen(true);
+                }}
+                accessibilityLabel={`Rent ${property.name}`}
+                accessibilityHint={user?.id ? "Opens the rent request form" : "Sign in to send a rent request"}
+                className="items-center justify-center rounded-full bg-primary-300 py-md"
+                style={{
+                  width: 130,
+                  ...shadow({ opacity: 0.3, radius: 12, offsetY: 6, elevation: 4 }),
+                }}
+              >
+                <Text className="text-body font-rubik-bold text-white">
+                  {!user?.id ? "Sign in to rent" : "Rent"}
+                </Text>
+              </Touchable>
+            </View>
+          ) : (
+            <Touchable
+              onPress={() => {
+                // Booking needs an account, and the submit handler silently
+                // returns without one — so a public visitor is sent to
+                // sign-in here, instead of opening a form that can never send.
+                if (!user?.id) {
+                  router.push("/sign-in");
+                  return;
+                }
+                setBookingSent(false);
+                setBookingOpen(true);
+              }}
+              disabled={isOwnListing}
+              accessibilityLabel={
+                isOwnListing ? "You cannot rent your own listing" : `Book ${property.name}`
               }
-              setBookingSent(false);
-              setBookingOpen(true);
-            }}
-            disabled={isOwnListing}
-            accessibilityLabel={
-              isOwnListing ? "You cannot rent your own listing" : `${property.rental_mode === "monthly" ? "Rent" : "Book"} ${property.name}`
-            }
-            accessibilityHint={isOwnListing ? undefined : user?.id ? "Opens the booking request form" : "Sign in to send a booking request"}
-            accessibilityState={{ disabled: isOwnListing }}
-            className="items-center justify-center rounded-full bg-primary-300 py-md"
-            // Narrow, centred button — not a full-width bar button. The bar
-            // itself is capped at the 560 detail column, and this button is
-            // a fixed 180 wide inside it.
-            style={{
-              width: 180,
-              ...shadow({ opacity: 0.3, radius: 12, offsetY: 6, elevation: 4 }),
-            }}
-          >
-            <Text className="text-body font-rubik-bold text-white">
-              {isOwnListing ? "Your listing" : !user?.id ? "Sign in to book" : property.rental_mode === "monthly" ? "Rent now" : "Book now"}
-            </Text>
-          </Touchable>
+              accessibilityHint={isOwnListing ? undefined : user?.id ? "Opens the booking request form" : "Sign in to send a booking request"}
+              accessibilityState={{ disabled: isOwnListing }}
+              className="items-center justify-center rounded-full bg-primary-300 py-md"
+              // Narrow, centred button — not a full-width bar button. The bar
+              // itself is capped at the 560 detail column, and this button is
+              // a fixed 180 wide inside it.
+              style={{
+                width: 180,
+                ...shadow({ opacity: 0.3, radius: 12, offsetY: 6, elevation: 4 }),
+              }}
+            >
+              <Text className="text-body font-rubik-bold text-white">
+                {isOwnListing ? "Your listing" : !user?.id ? "Sign in to book" : "Book now"}
+              </Text>
+            </Touchable>
+          )}
         </View>
       </View>
 
@@ -801,25 +994,62 @@ export default function Property() {
               {property.name}
             </Text>
 
-            <View className="mt-lg">
-              <Text className="text-caption font-rubik-medium text-black-200 dark:text-white/60 mb-xs">
-                {checkIn && checkOut
-                  ? `${checkIn} to ${checkOut}`
-                  : checkIn
-                    ? `Check-in ${checkIn} — now pick a check-out`
-                    : "Pick your check-in date"}
-              </Text>
-              <AvailabilityCalendar
-                booked={booked}
-                checkIn={checkIn}
-                checkOut={checkOut}
-                onChange={(next) => {
-                  setCheckIn(next.checkIn);
-                  setCheckOut(next.checkOut);
-                  setFormError(null);
-                }}
-              />
-            </View>
+            {property.rental_mode === "monthly" ? (
+              // Monthly rent: a move-in date and a count of months (minimum
+              // 1) — no day-range calendar. Day picking lives on daily
+              // rentals only.
+              <View className="mt-lg">
+                <Text className="text-caption font-rubik-medium text-black-200 dark:text-white/60 mb-2xs">
+                  Move-in date (YYYY-MM-DD)
+                </Text>
+                <TextInput
+                  value={moveIn}
+                  onChangeText={(v) => {
+                    setMoveIn(v);
+                    setRentError(null);
+                  }}
+                  placeholder="2026-12-01"
+                  placeholderTextColor="#8C8E98"
+                  accessibilityLabel="Move-in date"
+                  className="rounded-full border border-line dark:border-line-dark bg-surface dark:bg-surface-dark-muted px-md py-sm text-body font-rubik text-black-300 dark:text-white"
+                />
+                <View className="mt-md">
+                  <Stepper
+                    label="Months"
+                    value={months}
+                    onChange={setMonths}
+                    min={1}
+                    max={24}
+                    hint="Minimum 1 month"
+                  />
+                </View>
+                {rentEnd ? (
+                  <Text className="text-caption font-rubik text-black-200 dark:text-white/60 mt-md">
+                    {moveIn} to {rentEnd} ({months} month{months === 1 ? "" : "s"})
+                  </Text>
+                ) : null}
+              </View>
+            ) : (
+              <View className="mt-lg">
+                <Text className="text-caption font-rubik-medium text-black-200 dark:text-white/60 mb-xs">
+                  {checkIn && checkOut
+                    ? `${checkIn} to ${checkOut}`
+                    : checkIn
+                      ? `Check-in ${checkIn} — now pick a check-out`
+                      : "Pick your check-in date"}
+                </Text>
+                <AvailabilityCalendar
+                  booked={booked}
+                  checkIn={checkIn}
+                  checkOut={checkOut}
+                  onChange={(next) => {
+                    setCheckIn(next.checkIn);
+                    setCheckOut(next.checkOut);
+                    setFormError(null);
+                  }}
+                />
+              </View>
+            )}
 
             <Text className="text-caption font-rubik-medium text-black-200 dark:text-white/60 mt-md mb-2xs">
               Guests
@@ -832,36 +1062,89 @@ export default function Property() {
               className="rounded-full border border-line dark:border-line-dark bg-surface dark:bg-surface-dark-muted px-md py-sm text-body font-rubik text-black-300 dark:text-white"
             />
 
-            {nights > 0 ? (
+            {property.rental_mode === "monthly" ? (
+              <View className="mt-lg p-md rounded-lg bg-surface-muted dark:bg-surface-dark-elevated">
+                <View className="flex-row items-center justify-between">
+                  <Text className="text-body font-rubik text-black-200 dark:text-white/70">
+                    {months} month{months === 1 ? "" : "s"} × {money(property.price)}
+                  </Text>
+                  <Text className="text-body font-rubik text-black-300 dark:text-white">
+                    {money(Math.round(Number(property.price) * months))}
+                  </Text>
+                </View>
+                {serviceFee > 0 ? (
+                  <View className="flex-row items-center justify-between mt-xs">
+                    <Text className="text-body font-rubik text-black-200 dark:text-white/70">
+                      Service fee (one-time)
+                    </Text>
+                    <Text className="text-body font-rubik text-black-300 dark:text-white">
+                      {money(serviceFee)}
+                    </Text>
+                  </View>
+                ) : null}
+                <View className="flex-row items-center justify-between mt-xs">
+                  <Text className="text-body font-rubik-bold text-black-300 dark:text-white">Total</Text>
+                  <Text className="text-body font-rubik-extrabold text-primary-300">{money(rentTotal)}</Text>
+                </View>
+              </View>
+            ) : nights > 0 ? (
               <View className="flex-row items-center justify-between mt-lg p-md rounded-lg bg-surface-muted dark:bg-surface-dark-elevated">
                 <Text className="text-body font-rubik text-black-200 dark:text-white/70">
                   {nights} night{nights === 1 ? "" : "s"}
                 </Text>
                 <Text className="text-body font-rubik-extrabold text-primary-300">
-                  {money(
-                    property.rental_mode === "short_term"
-                      ? Math.round(Number(property.price) * nights)
-                      : Math.round((Number(property.price) / 30) * nights)
-                  )}
+                  {money(Math.round(Number(property.price) * nights) + serviceFee)}
                 </Text>
               </View>
             ) : null}
 
-            {bookingSent ? (
+            {rentSent ? (
+              <View
+                accessibilityLiveRegion="polite"
+                className="rounded-lg border border-success bg-success/10 p-md mb-md mt-lg"
+              >
+                <Text className="text-caption font-rubik-bold text-success">Rent request sent</Text>
+                <Text className="text-caption font-rubik text-black-200 dark:text-white/60 mt-2xs">
+                  The owner has been notified and will confirm or decline.
+                </Text>
+                <View className="flex-row gap-xs mt-sm">
+                  <Touchable
+                    onPress={() => router.push("/bookings")}
+                    accessibilityLabel="View my rentals"
+                    style={{ flex: 1, minHeight: 44 }}
+                    className="items-center justify-center rounded-full border border-success"
+                  >
+                    <Text className="text-caption font-rubik-bold text-success">View</Text>
+                  </Touchable>
+                  {lastBookingId ? (
+                    <Touchable
+                      onPress={() =>
+                        router.push(`/checkout?bookingId=${lastBookingId}&amount=${encodeURIComponent(String(rentTotal))}`)
+                      }
+                      accessibilityLabel="Pay now"
+                      style={{ flex: 1, minHeight: 44 }}
+                      className="items-center justify-center rounded-full bg-primary-300"
+                    >
+                      <Text className="text-caption font-rubik-bold text-white">Pay now</Text>
+                    </Touchable>
+                  ) : null}
+                </View>
+              </View>
+            ) : null}
+
+            {bookingSent && property.rental_mode === "short_term" ? (
               <View
                 accessibilityLiveRegion="polite"
                 className="rounded-lg border border-success bg-success/10 p-md mb-md"
               >
                 <Text className="text-caption font-rubik-bold text-success">Request sent</Text>
                 <Text className="text-caption font-rubik text-black-200 dark:text-white/60 mt-2xs">
-                  {property.rental_mode === "monthly"
-                    ? "The owner has been notified and will confirm or decline."
-                    : "The owner has been notified and will confirm or decline."}
+                  The owner has been notified and will confirm or decline.
                 </Text>
                 <View className="flex-row gap-xs mt-sm">
                   <Touchable
                     onPress={() => router.push("/bookings")}
-                    accessibilityLabel={`View my ${property.rental_mode === "monthly" ? "rentals" : "bookings"}`}
+                    accessibilityLabel="View my bookings"
                     style={{ flex: 1, minHeight: 44 }}
                     className="items-center justify-center rounded-full border border-success"
                   >
@@ -874,11 +1157,7 @@ export default function Property() {
                       onPress={() =>
                         router.push(
                           `/checkout?bookingId=${lastBookingId}&amount=${encodeURIComponent(
-                            String(
-                              property.rental_mode === "short_term"
-                                ? Math.round(Number(property.price) * nights)
-                                : Math.round((Number(property.price) / 30) * nights)
-                            )
+                            String(Math.round(Number(property.price) * nights) + serviceFee)
                           )}`
                         )
                       }
@@ -893,17 +1172,17 @@ export default function Property() {
               </View>
             ) : null}
 
-            {formError ? (
+            {(property.rental_mode === "monthly" ? rentError : formError) ? (
               <Text
                 accessibilityLiveRegion="polite"
                 className="text-caption font-rubik-medium text-danger mt-md"
               >
-                {formError}
+                {property.rental_mode === "monthly" ? rentError : formError}
               </Text>
             ) : null}
 
             <Touchable
-              onPress={submitBooking}
+              onPress={property.rental_mode === "monthly" ? submitRent : submitBooking}
               disabled={submitting}
               accessibilityLabel={`Send ${property.rental_mode === "monthly" ? "rent" : "booking"} request`}
               accessibilityState={{ disabled: submitting, busy: submitting }}
@@ -915,6 +1194,115 @@ export default function Property() {
                 {submitting ? "Sending…" : property.rental_mode === "monthly" ? "Send rent request" : "Send request"}
               </Text>
             </Touchable>
+          </ScrollView>
+        </View>
+      </Modal>
+
+      {/* Book a tour sheet (monthly rentals only) */}
+      <Modal
+        visible={tourOpen}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setTourOpen(false)}
+      >
+        <View className="flex-1 justify-end bg-black/40">
+          <ScrollView
+            style={{ maxHeight: height * 0.9 }}
+            contentContainerStyle={{
+              paddingBottom: insets.bottom + 24,
+              paddingHorizontal: gutter,
+              width: "100%",
+              maxWidth: 560,
+              alignSelf: "center",
+            }}
+            className="rounded-t-2xl bg-surface dark:bg-surface-dark pt-lg"
+            showsVerticalScrollIndicator={false}
+          >
+            <View className="flex-row items-center justify-between">
+              <Text
+                accessibilityRole="header"
+                className="text-h3 font-rubik-bold text-black-300 dark:text-white"
+              >
+                Book a tour
+              </Text>
+              <IconButton
+                icon={icons.backArrow}
+                label="Close tour form"
+                onPress={() => setTourOpen(false)}
+              />
+            </View>
+            <Text className="text-caption font-rubik text-black-200 dark:text-white/60 mt-2xs">
+              {property.name} — the owner will confirm or decline your tour.
+            </Text>
+            {tourSent ? (
+              <View
+                accessibilityLiveRegion="polite"
+                className="rounded-lg border border-success bg-success/10 p-md mt-lg"
+              >
+                <Text className="text-caption font-rubik-bold text-success">Tour request sent</Text>
+                <Text className="text-caption font-rubik text-black-200 dark:text-white/60 mt-2xs">
+                  Tour on {tourDate}. The owner has been notified — it will appear in your bookings.
+                </Text>
+                <Touchable
+                  onPress={() => router.push("/bookings")}
+                  accessibilityLabel="View my bookings"
+                  style={{ minHeight: 44, marginTop: 12 }}
+                  className="items-center justify-center rounded-full border border-success"
+                >
+                  <Text className="text-caption font-rubik-bold text-success">View</Text>
+                </Touchable>
+              </View>
+            ) : (
+              <>
+                <Text className="text-caption font-rubik-medium text-black-200 dark:text-white/60 mt-lg mb-2xs">
+                  Tour date (YYYY-MM-DD)
+                </Text>
+                <TextInput
+                  value={tourDate}
+                  onChangeText={(v) => {
+                    setTourDate(v);
+                    setTourError(null);
+                  }}
+                  placeholder="2026-12-01"
+                  placeholderTextColor="#8C8E98"
+                  accessibilityLabel="Tour date"
+                  className="rounded-full border border-line dark:border-line-dark bg-surface dark:bg-surface-dark-muted px-md py-sm text-body font-rubik text-black-300 dark:text-white"
+                />
+                <Text className="text-caption font-rubik-medium text-black-200 dark:text-white/60 mt-md mb-2xs">
+                  Message (optional)
+                </Text>
+                <TextInput
+                  value={tourMessage}
+                  onChangeText={setTourMessage}
+                  placeholder="What time works for you?"
+                  placeholderTextColor="#8C8E98"
+                  multiline
+                  accessibilityLabel="Message to the owner"
+                  className="rounded-md border border-line dark:border-line-dark bg-surface dark:bg-surface-dark-muted px-md py-sm text-body font-rubik text-black-300 dark:text-white"
+                  style={{ minHeight: 96, textAlignVertical: "top" }}
+                />
+                {tourError ? (
+                  <Text
+                    accessibilityLiveRegion="polite"
+                    className="text-caption font-rubik-medium text-danger mt-md"
+                  >
+                    {tourError}
+                  </Text>
+                ) : null}
+                <Touchable
+                  onPress={submitTour}
+                  disabled={submitting}
+                  accessibilityLabel="Send tour request"
+                  accessibilityState={{ disabled: submitting, busy: submitting }}
+                  style={{ minHeight: 52, marginTop: SPACE.lg, width: 240, alignSelf: "center" }}
+                  className="items-center justify-center rounded-full bg-primary-300"
+                >
+                  <Text className="text-body font-rubik-bold text-white">
+                    {submitting ? "Sending…" : "Send tour request"}
+                  </Text>
+                </Touchable>
+              </>
+            )}
           </ScrollView>
         </View>
       </Modal>

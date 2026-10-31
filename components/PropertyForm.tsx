@@ -137,6 +137,11 @@ export default function PropertyForm({
   );
   const [description, setDescription] = useState(initial?.description ?? "");
   const [price, setPrice] = useState(initial ? String(initial.price) : "");
+  // Optional one-time fee, shown on the detail page and added to a booking
+  // total. Blank means no fee (0), never a negative number.
+  const [serviceFee, setServiceFee] = useState(
+    initial?.service_fee ? String(initial.service_fee) : ""
+  );
   // Bedrooms/bathrooms are small bounded counts, so they are held as numbers and
   // chosen with a Stepper — there is no invalid intermediate state to validate.
   const [bedrooms, setBedrooms] = useState<number>(initial?.bedrooms ?? 1);
@@ -196,6 +201,8 @@ export default function PropertyForm({
     const e: Record<string, string> = {};
     if (!name.trim()) e.name = "Give the listing a name.";
     if (!Number.isFinite(num(price)) || num(price) <= 0) e.price = "Enter a price above 0.";
+    if (serviceFee.trim() !== "" && (!Number.isFinite(num(serviceFee)) || num(serviceFee) < 0))
+      e.serviceFee = "Enter a service fee of 0 or more, or leave it blank for no fee.";
     // Optional, but not free-form: a negative or fractional floor is not a
     // floor, and silently dropping it would save a listing that disagrees with
     // what the owner typed.
@@ -207,7 +214,7 @@ export default function PropertyForm({
       e.photos = `Add at least ${MIN_PHOTOS} photos — ${photos.length} so far.`;
     if (photos.length > MAX_PHOTOS) e.photos = `Remove some photos — the limit is ${MAX_PHOTOS}.`;
     return e;
-  }, [name, price, floorNumber, photos.length]);
+  }, [name, price, serviceFee, floorNumber, photos.length]);
 
   const valid = Object.keys(errors).length === 0;
 
@@ -285,6 +292,7 @@ export default function PropertyForm({
         name: name.trim(),
         type,
         price: num(price),
+        serviceFee: serviceFee.trim() === "" ? 0 : num(serviceFee),
         // The column is NOT NULL with a default, and nothing in the app shows
         // it, so it is written as 0 rather than asked for.
         area: 0,
@@ -486,6 +494,15 @@ export default function PropertyForm({
         placeholder={rentalMode === "short_term" ? "120" : "1600"}
         keyboardType="numeric"
         error={submitted ? errors.price : undefined}
+      />
+      <Field
+        label="Service fee (USD, one-time)"
+        value={serviceFee}
+        onChangeText={setServiceFee}
+        placeholder="0"
+        keyboardType="numeric"
+        hint="Shown on the property page and added once to a booking total. Leave blank for no fee."
+        error={submitted ? errors.serviceFee : undefined}
       />
       {/* No area field: square footage is not shown anywhere in the app, so
           asking for it would be a number the owner types and nobody reads. The

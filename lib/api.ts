@@ -391,6 +391,7 @@ export async function createBooking(
     guests: number;
     totalPrice: number;
     message?: string;
+    isTour?: boolean;
   }
 ): Promise<Booking> {
   const { data, error } = await supabase
@@ -404,6 +405,7 @@ export async function createBooking(
       guests: input.guests,
       total_price: input.totalPrice,
       message: input.message ?? null,
+      is_tour: input.isTour ?? false,
     })
     .select("*")
     .single();
@@ -518,6 +520,7 @@ export async function createProperty(
     description?: string;
     address?: string;
     price: number;
+    serviceFee?: number;
     area: number;
     bedrooms: number;
     bathrooms: number;
@@ -537,6 +540,7 @@ export async function createProperty(
     description: input.description ?? null,
     address: input.address ?? null,
     price: input.price,
+    service_fee: input.serviceFee ?? 0,
     area: input.area,
     bedrooms: input.bedrooms,
     bathrooms: input.bathrooms,
@@ -569,6 +573,17 @@ export async function createProperty(
       .single());
   }
 
+  // service_fee is also a new column (migration 0027): if the live schema
+  // cache still lacks it, retry without it rather than losing the listing.
+  if (error && (error as { code?: string }).code === "PGRST204") {
+    const { service_fee: _sf, ...withoutFee } = base as Record<string, unknown>;
+    ({ data, error } = await supabase
+      .from("properties")
+      .insert(withoutFee)
+      .select("*")
+      .single());
+  }
+
   if (error) throw error;
   return data as Property;
 }
@@ -584,6 +599,7 @@ export async function updateProperty(
     description?: string | null;
     address?: string | null;
     price?: number;
+    serviceFee?: number;
     area?: number;
     bedrooms?: number;
     bathrooms?: number;
@@ -604,6 +620,7 @@ export async function updateProperty(
     ...(input.description !== undefined ? { description: input.description } : {}),
     ...(input.address !== undefined ? { address: input.address } : {}),
     ...(input.price !== undefined ? { price: input.price } : {}),
+    ...(input.serviceFee !== undefined ? { service_fee: input.serviceFee } : {}),
     ...(input.area !== undefined ? { area: input.area } : {}),
     ...(input.bedrooms !== undefined ? { bedrooms: input.bedrooms } : {}),
     ...(input.bathrooms !== undefined ? { bathrooms: input.bathrooms } : {}),
@@ -626,13 +643,11 @@ export async function updateProperty(
     .single();
 
   // Same PGRST204 fallback as createProperty: if the live schema cache lacks
-  // living_rooms/floor_number, retry without them so an edit to facilities,
-  // amenities, price, etc. is not blocked by two optional fields.
+  // living_rooms/floor_number/service_fee, retry without them so an edit to
+  // facilities, amenities, price, etc. is not blocked by optional fields.
   if (error && (error as { code?: string }).code === "PGRST204") {
-    const { living_rooms: _lr, floor_number: _fn, ...rest } = payload as Record<
-      string,
-      unknown
-    >;
+    const { living_rooms: _lr, floor_number: _fn, service_fee: _sf, ...rest } =
+      payload as Record<string, unknown>;
     ({ data, error } = await supabase
       .from("properties")
       .update(rest)
