@@ -80,7 +80,7 @@ export function PropertyCard({
     <FadeInUp index={index} className="flex-1">
       <View
         style={{ flex: 1, ...shadow({ opacity: 0.08, radius: 12, offsetY: 6, elevation: 3 }) }}
-        className="relative rounded-lg overflow-hidden bg-surface dark:bg-surface-dark-muted border border-line dark:border-line-dark"
+        className="relative rounded-xl overflow-hidden bg-surface dark:bg-surface-dark-muted border border-line dark:border-line-dark"
       >
         <Touchable
           onPress={() => router.push(`/properties/${item.id}`)}
@@ -92,13 +92,13 @@ export function PropertyCard({
             {item.image ? (
               <Image
                 source={{ uri: item.image }}
-                style={{ width: "100%", height: 160 }}
+                style={{ width: "100%", height: 180 }}
                 resizeMode="cover"
                 accessible={false}
                 alt=""
               />
             ) : (
-              <View className="w-full h-40 bg-surface-sunken dark:bg-surface-dark-elevated" />
+              <View className="w-full bg-surface-sunken dark:bg-surface-dark-elevated" style={{ height: 180 }} />
             )}
             <View className="absolute top-xs right-xs">
               <Rating value={item.rating} />
@@ -120,6 +120,23 @@ export function PropertyCard({
             >
               {item.address}
             </Text>
+            {/* Beds/baths at a glance, like a modern listing card — previously
+                the grid card showed price only, so renters had to open every
+                card to learn the room counts. */}
+            <View className="flex-row items-center gap-md mt-xs">
+              <View className="flex-row items-center gap-2xs">
+                <Image source={icons.bed} style={{ width: 16, height: 16 }} accessible={false} alt="" />
+                <Text className="text-caption font-rubik-medium text-black-200 dark:text-white/60">
+                  {item.bedrooms} bed{item.bedrooms === 1 ? "" : "s"}
+                </Text>
+              </View>
+              <View className="flex-row items-center gap-2xs">
+                <Image source={icons.bath} style={{ width: 16, height: 16 }} accessible={false} alt="" />
+                <Text className="text-caption font-rubik-medium text-black-200 dark:text-white/60">
+                  {item.bathrooms} bath{item.bathrooms === 1 ? "" : "s"}
+                </Text>
+              </View>
+            </View>
             <View className="flex-row items-baseline gap-2xs mt-xs">
               <Text className="text-body font-rubik-extrabold text-primary-300">
                 {money(item.price)}

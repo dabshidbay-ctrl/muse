@@ -18,6 +18,22 @@ function Greeting() {
   const hour = new Date().getHours();
   const part = hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
 
+  // Visitors are not "back" — they are shopping. A signed-in greeting for an
+  // anonymous visitor reads as a broken login, so visitors get a Mogadishu
+  // hero headline instead, and signed-in users keep the personal greeting.
+  if (!user) {
+    return (
+      <View className="flex-1">
+        <Text className="text-h1 font-rubik-extrabold text-black-300 dark:text-white">
+          Find your home in Mogadishu
+        </Text>
+        <Text className="text-body font-rubik text-black-200 dark:text-white/60 mt-2xs">
+          Houses, apartments and BnBs across all 20 districts — from Hodan to Abdiaziz.
+        </Text>
+      </View>
+    );
+  }
+
   return (
     <View className="flex-row items-center gap-sm flex-1">
       <Touchable
@@ -96,8 +112,9 @@ export default function Index() {
         showsVerticalScrollIndicator={false}
         ListHeaderComponent={
           <View>
-            <View className="flex-row items-center gap-sm pt-sm">
+            <View className="flex-row items-start gap-sm pt-sm">
               <Greeting />
+              {user ? (
               <View>
                 <IconButton
                   icon={icons.bell}
@@ -119,6 +136,7 @@ export default function Index() {
                   </View>
                 ) : null}
               </View>
+              ) : null}
             </View>
 
             <Touchable
@@ -185,9 +203,19 @@ export default function Index() {
           ) : (
             <EmptyState
               title="No properties yet"
-              body="Run supabase/seed.sql in the Supabase SQL editor to load sample listings."
+              body="Listings will appear here as owners publish them. Check back soon, or browse all districts on Explore."
             />
           )
+        }
+        ListFooterComponent={
+          <View className="items-center py-xl">
+            <Text className="text-body font-rubik-bold text-black-300 dark:text-white">
+              ReState
+            </Text>
+            <Text className="text-caption font-rubik text-black-200 dark:text-white/60 text-center mt-2xs">
+              Homes across Mogadishu — sign in to book, or publish your own listing.
+            </Text>
+          </View>
         }
         renderItem={({ item, index }) =>
           columns === 1 ? (

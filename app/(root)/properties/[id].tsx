@@ -462,7 +462,13 @@ export default function Property() {
           <View className="flex-row gap-xs mt-lg">
             <Stat icon={icons.bed} value={property.bedrooms} label="Beds" />
             <Stat icon={icons.bath} value={property.bathrooms} label="Toilets" />
-            <Stat icon={icons.home} value={property.living_rooms ?? 0} label="Living" />
+            {/* A 0 here usually means "unknown" (older rows, or a database
+                without the living_rooms column), not a home with no living
+                space — showing "0 Living" reads as a broken listing, so the
+                stat is omitted until a real count exists. */}
+            {(property.living_rooms ?? 0) > 0 ? (
+              <Stat icon={icons.home} value={property.living_rooms ?? 0} label="Living" />
+            ) : null}
           </View>
 
           {property.floor_number !== null && property.floor_number !== undefined ? (
