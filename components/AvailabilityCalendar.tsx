@@ -193,16 +193,18 @@ export function AvailabilityCalendar({
                   accessibilityLabel={label}
                   accessibilityState={{ disabled, selected: cell.selected }}
                   style={{ minHeight: MIN_TAP }}
-                  className={`items-center justify-center rounded-sm border ${
+                  className={`items-center justify-center rounded-md border ${
                     cell.selected
                       ? "bg-primary-300 border-primary-300"
                       : cell.past
                         ? "bg-surface-muted dark:bg-surface-dark-elevated border-line dark:border-line-dark"
                         : cell.booked
-                          ? "bg-danger/20 border-danger"
+                          // Booked = red, vacant = green — stronger tints so
+                          // the colours survive pale photos and light themes.
+                          ? "bg-danger/30 border-danger"
                           : cell.inRange
                             ? "bg-primary-200 border-primary-300"
-                            : "bg-success/20 border-success"
+                            : "bg-success/30 border-success"
                   }`}
                 >
                   <Text
@@ -232,11 +234,11 @@ export function AvailabilityCalendar({
 
       <View className="flex-row flex-wrap items-center gap-md mt-sm">
         <View className="flex-row items-center gap-2xs">
-          <View className="size-3 rounded-xs bg-success/20 border border-success" />
+          <View className="size-3 rounded-xs bg-success/30 border border-success" />
           <Text className="text-caption font-rubik text-black-200 dark:text-white/60">Available</Text>
         </View>
         <View className="flex-row items-center gap-2xs">
-          <View className="size-3 rounded-xs bg-danger/20 border border-danger" />
+          <View className="size-3 rounded-xs bg-danger/30 border border-danger" />
           <Text
             style={{ textDecorationLine: "line-through" }}
             className="text-caption font-rubik text-black-200 dark:text-white/60"

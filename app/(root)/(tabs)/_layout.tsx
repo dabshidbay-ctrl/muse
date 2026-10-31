@@ -68,6 +68,13 @@ export default function TabsLayout() {
           backgroundColor: bar.background,
           borderTopColor: bar.border,
           borderTopWidth: 1,
+          // Mobile-first on web too: on a wide desktop window the tab bar
+          // is capped at the same centred column as the detail page, instead
+          // of stretching across the whole screen. Native phones are
+          // untouched — their bar is already phone-width.
+          ...(Platform.OS === "web"
+            ? { width: "100%", maxWidth: 560, alignSelf: "center", left: 0, right: 0, marginHorizontal: "auto" as const }
+            : {}),
           // 76, not 64: the content box is height - paddingTop - paddingBottom,
           // and each item needs minHeight 48 plus its own 8/4 padding = 60. At
           // 64 the box was 58 and the *label* was the thing that overflowed and

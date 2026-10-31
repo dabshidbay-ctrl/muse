@@ -64,7 +64,7 @@ function Stat({ icon, value, label }: { icon: any; value: string | number; label
 export default function Property() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const insets = useSafeAreaInsets();
-  const { heroHeight, gutter, maxContentWidth, height } = useResponsive();
+  const { heroHeight, gutter, height } = useResponsive();
   const { user } = useSession();
 
   const { data: property, loading, error } = useSupabase({
@@ -303,17 +303,34 @@ export default function Property() {
         // Bottom inset clears the sticky CTA so content is never hidden behind it.
         contentContainerStyle={{ paddingBottom: 132 + insets.bottom }}
       >
-        <View>
-          {galleryImages.length ? (
-            <PropertyGallery images={galleryImages} height={heroHeight} />
-          ) : (
-            <View style={{ height: heroHeight }} className="w-full bg-surface-sunken" />
-          )}
-          {/* Floating controls sit inside the top safe area, never under the notch. */}
-          <View
-            className="absolute left-lg right-lg flex-row items-center justify-between"
-            style={{ top: insets.top + 8 }}
-          >
+        {/* Mobile-first detail column: photos, buttons and content are all
+            capped at 560 wide and centred, on every screen. Before this the
+            gallery and the floating buttons stretched across a full desktop
+            width, which is what made the page feel wide and uncentred. On a
+            phone 560 is wider than the screen, so nothing changes there. */}
+        <View
+          style={{
+            width: "100%",
+            maxWidth: 560 + gutter * 2,
+            alignSelf: "center",
+            paddingHorizontal: gutter,
+            paddingTop: 8,
+          }}
+        >
+          <View className="relative overflow-hidden rounded-xl">
+            {galleryImages.length ? (
+              <PropertyGallery images={galleryImages} height={heroHeight} />
+            ) : (
+              <View style={{ height: heroHeight }} className="w-full bg-surface-sunken" />
+            )}
+            {/* Floating controls sit inside the top safe area, never under the notch.
+                They now live inside the centred photo card, so back / love /
+                share are grouped over the photo instead of spread across the
+                whole screen width. */}
+            <View
+              className="absolute left-lg right-lg flex-row items-center justify-between"
+              style={{ top: insets.top + 8 }}
+            >
             <IconButton icon={icons.backArrow} label="Go back" onPress={goBack} />
             <View className="flex-row gap-xs">
               {canManage ? (
@@ -362,12 +379,13 @@ export default function Property() {
             </View>
           </View>
         </View>
+        </View>
 
         <View
           style={{
             paddingHorizontal: gutter,
             width: "100%",
-            maxWidth: maxContentWidth,
+            maxWidth: 560,
             alignSelf: "center",
           }}
           // Pull the sheet over the hero for depth (glassmorphism layering).
@@ -697,7 +715,7 @@ export default function Property() {
       >
         <View
           className="flex-row items-center justify-between gap-md"
-          style={{ width: "100%", maxWidth: maxContentWidth, alignSelf: "center" }}
+          style={{ width: "100%", maxWidth: 560, alignSelf: "center" }}
         >
           <View>
             <Text className="text-caption font-rubik text-black-200 dark:text-white/60 uppercase">
@@ -726,10 +744,11 @@ export default function Property() {
             accessibilityHint={isOwnListing ? undefined : user?.id ? "Opens the booking request form" : "Sign in to send a booking request"}
             accessibilityState={{ disabled: isOwnListing }}
             className="items-center justify-center rounded-full bg-primary-300 py-md"
-            // Width belongs to the outer Pressable: the inner view only paints.
+            // Narrow, centred button — not a full-width bar button. The bar
+            // itself is capped at the 560 detail column, and this button is
+            // a fixed 180 wide inside it.
             style={{
-              flex: 1,
-              maxWidth: 220,
+              width: 180,
               ...shadow({ opacity: 0.3, radius: 12, offsetY: 6, elevation: 4 }),
             }}
           >
@@ -751,8 +770,16 @@ export default function Property() {
           <ScrollView
             // The calendar makes the sheet taller than a phone screen, so the
             // Send button has to stay reachable rather than sit off-canvas.
+            // Squeezed to the same 560 detail column, centred — before this
+            // the sheet and its calendar stretched across a full desktop width.
             style={{ maxHeight: height * 0.9 }}
-            contentContainerStyle={{ paddingBottom: insets.bottom + 24, paddingHorizontal: gutter }}
+            contentContainerStyle={{
+              paddingBottom: insets.bottom + 24,
+              paddingHorizontal: gutter,
+              width: "100%",
+              maxWidth: 560,
+              alignSelf: "center",
+            }}
             className="rounded-t-2xl bg-surface dark:bg-surface-dark pt-lg"
             showsVerticalScrollIndicator={false}
           >
@@ -880,7 +907,8 @@ export default function Property() {
               disabled={submitting}
               accessibilityLabel={`Send ${property.rental_mode === "monthly" ? "rent" : "booking"} request`}
               accessibilityState={{ disabled: submitting, busy: submitting }}
-              style={{ minHeight: 52, marginTop: SPACE.lg }}
+              // Narrow, centred send button — same rule as the booking bar.
+              style={{ minHeight: 52, marginTop: SPACE.lg, width: 240, alignSelf: "center" }}
               className="items-center justify-center rounded-full bg-primary-300"
             >
               <Text className="text-body font-rubik-bold text-white">
