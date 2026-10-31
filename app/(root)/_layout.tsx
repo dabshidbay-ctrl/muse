@@ -100,14 +100,6 @@ export default function AppLayout() {
     return () => sub.remove();
   }, [isSignedIn]);
 
-  if (!isLoaded) {
-    return (
-      <SafeAreaView className="bg-white h-full flex justify-center items-center">
-        <ActivityIndicator className="text-primary-300" size="large" />
-      </SafeAreaView>
-    );
-  }
-
   // Signed-out guard, done as an effect instead of a render-time <Redirect>:
   // rendering <Redirect> out of this layout — which owns the tab navigator —
   // while a tab tap is still settling crashed the release build on Android
@@ -116,6 +108,10 @@ export default function AppLayout() {
   // rendering nothing meanwhile, takes that transition out of the crash path.
   // The sign-in screen itself lives outside this group, so once the replace
   // lands this layout unmounts and cannot loop back onto itself.
+  // This effect MUST stay above the early returns below: a hook placed after
+  // `if (!isLoaded) return …` changes the hook count once the session loads,
+  // and React kills the app with "rendered more hooks than during the
+  // previous render" — that is exactly the crash the 19:33 build shipped with.
   useEffect(() => {
     if (isLoaded && !isSignedIn && !isPublicPath(pathname) && pathname !== "/sign-in") {
       // Remember where the tap came from so the sign-in screen's back button
@@ -123,6 +119,14 @@ export default function AppLayout() {
       router.replace({ pathname: "/sign-in", params: { returnTo: pathname } });
     }
   }, [isLoaded, isSignedIn, pathname]);
+
+  if (!isLoaded) {
+    return (
+      <SafeAreaView className="bg-white h-full flex justify-center items-center">
+        <ActivityIndicator className="text-primary-300" size="large" />
+      </SafeAreaView>
+    );
+  }
 
   if (!isSignedIn && !isPublicPath(pathname)) {
     return null;
