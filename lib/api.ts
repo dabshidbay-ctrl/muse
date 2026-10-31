@@ -529,28 +529,45 @@ export async function createProperty(
     image?: string;
   }
 ): Promise<Property> {
-  const { data, error } = await supabase
+  const base = {
+    owner_id: input.ownerId,
+    name: input.name,
+    type: input.type,
+    district: input.district ?? null,
+    description: input.description ?? null,
+    address: input.address ?? null,
+    price: input.price,
+    area: input.area,
+    bedrooms: input.bedrooms,
+    bathrooms: input.bathrooms,
+    facilities: input.facilities ?? [],
+    nearby_facilities: input.nearbyFacilities ?? [],
+    rental_mode: input.rentalMode ?? "monthly",
+    image: input.image ?? null,
+  };
+  // living_rooms / floor_number come from migration 0024. Some live databases
+  // have not applied it (or their PostgREST schema cache is stale), and then
+  // sending those columns fails the whole insert with PGRST204 — that is what
+  // blocked every publish. They are optional details, so retry without them
+  // rather than losing the listing.
+  const full = {
+    ...base,
+    living_rooms: input.livingRooms ?? 0,
+    floor_number: input.floorNumber ?? null,
+  };
+  let { data, error } = await supabase
     .from("properties")
-    .insert({
-      owner_id: input.ownerId,
-      name: input.name,
-      type: input.type,
-      district: input.district ?? null,
-      description: input.description ?? null,
-      address: input.address ?? null,
-      price: input.price,
-      area: input.area,
-      bedrooms: input.bedrooms,
-      bathrooms: input.bathrooms,
-      living_rooms: input.livingRooms ?? 0,
-      floor_number: input.floorNumber ?? null,
-      facilities: input.facilities ?? [],
-      nearby_facilities: input.nearbyFacilities ?? [],
-      rental_mode: input.rentalMode ?? "monthly",
-      image: input.image ?? null,
-    })
+    .insert(full)
     .select("*")
     .single();
+
+  if (error && (error as { code?: string }).code === "PGRST204") {
+    ({ data, error } = await supabase
+      .from("properties")
+      .insert(base)
+      .select("*")
+      .single());
+  }
 
   if (error) throw error;
   return data as Property;
