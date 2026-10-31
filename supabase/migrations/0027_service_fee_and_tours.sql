@@ -11,9 +11,9 @@
 -- 2. Monthly rentals are Rent + Book a tour, not a day booking. A tour is
 --    stored as a bookings row with is_tour = true so it reuses the existing
 --    Requests / My bookings UI (owner confirms or declines it, guest sees
---    it), but it must NOT block the calendar and must never be charged:
---    get_booked_ranges is recreated to exclude tour rows, and the app hides
---    "Pay now" for tours.
+--    it), but it must NOT block the calendar: get_booked_ranges is recreated
+--    to exclude tour rows. A tour carries only a $15 fee (held in escrow),
+--    never a rent payment.
 -- Code cannot apply this — run it in the Supabase SQL editor, then reload.
 
 -- ================================================= 1. service fee

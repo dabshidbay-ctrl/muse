@@ -115,6 +115,7 @@ export function IconButton({
   disabled,
   hint,
   tintColor,
+  transparent = false,
   className = "",
 }: {
   icon: ImageSourcePropType;
@@ -125,6 +126,10 @@ export function IconButton({
   hint?: string;
   /** Optional tint for the icon image. Passed to Image's tintColor prop. */
   tintColor?: string;
+  /** Transparent background, for buttons sitting directly on a photo: the
+      glyph alone, no disc behind it. A className bg would fight the base
+      bg-surface/90 in the generated sheet, so this omits the base instead. */
+  transparent?: boolean;
   /**
    * Painted on the inner view. Hover styling is a CSS class here (see
    * `hover-heart` / `hover-share` in app/global.css) rather than React state:
@@ -141,7 +146,7 @@ export function IconButton({
       accessibilityHint={hint}
       stopPropagation
       style={{ minWidth: MIN_TAP, minHeight: MIN_TAP }}
-      className={`items-center justify-center rounded-full bg-surface/90 dark:bg-surface-dark-elevated ${className}`}
+      className={`items-center justify-center rounded-full ${transparent ? "bg-transparent" : "bg-surface/90 dark:bg-surface-dark-elevated"} ${className}`}
     >
       <Image
         source={icon}

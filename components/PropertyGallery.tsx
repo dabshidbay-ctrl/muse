@@ -242,15 +242,15 @@ export function PropertyGallery({ images, height }: { images: string[]; height: 
               icon={icons.backArrow}
               label="Previous photo"
               onPress={() => goTo(index - 1)}
+              transparent
               tintColor="#FFFFFF"
-              className="bg-black/50"
             />
             <IconButton
               icon={icons.rightArrow}
               label="Next photo"
               onPress={() => goTo(index + 1)}
+              transparent
               tintColor="#FFFFFF"
-              className="bg-black/50"
             />
           </View>
 

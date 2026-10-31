@@ -262,9 +262,9 @@ export default function Bookings() {
                 <StatusPill status={item.status} />
               </Touchable>
 
-              {/* Guest: pay now button for unpaid bookings — never for tours,
-                  which cost nothing and must never be charged. */}
-              {tab === "mine" && !item.is_tour && item.payment_status === "unpaid" && item.status !== "cancelled" && item.status !== "declined" ? (
+              {/* Guest: pay now button for unpaid bookings. Tours are payable
+                  too: their $15 fee is held in escrow, it is not a rent payment. */}
+              {tab === "mine" && item.payment_status === "unpaid" && item.status !== "cancelled" && item.status !== "declined" ? (
                 <View className="mt-md">
                   <Touchable
                     onPress={() =>

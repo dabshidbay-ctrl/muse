@@ -350,7 +350,11 @@ export default function Property() {
   // --- Book a tour (monthly only) ----------------------------------------
   // A tour is a bookings row with is_tour = true: the owner sees it in
   // Requests and can confirm or decline it, the guest sees it in My
-  // bookings, but it never blocks the calendar and is never charged.
+  // bookings, and it never blocks the calendar. It is not a check-in date
+  // at all — just a preferred tour date — and it costs a $15 tour fee,
+  // held in escrow: the guest pays it at checkout, and it is not a rent
+  // payment.
+  const TOUR_FEE = 15;
   const [tourOpen, setTourOpen] = useState(false);
   const [tourDate, setTourDate] = useState("");
   const [tourMessage, setTourMessage] = useState("");
@@ -377,13 +381,14 @@ export default function Property() {
         checkIn: tourDate,
         checkOut: addDaysISO(tourDate, 1),
         guests: 1,
-        totalPrice: 0,
+        totalPrice: TOUR_FEE,
         message: tourMessage.trim() ? `Tour request: ${tourMessage.trim()}` : "Tour request",
         isTour: true,
       });
       // check_out must be after check_in, so a tour occupies a 1-day window
       // in the row itself — but is_tour rows are excluded from booked ranges,
       // so that window never greys out on the calendar.
+      setLastBookingId(created.id);
       setTourSent(true);
     } catch (err) {
       captureError(err, "tour-create");
@@ -453,7 +458,10 @@ export default function Property() {
               className="absolute left-lg right-lg flex-row items-center justify-between"
               style={{ top: insets.top + 8 }}
             >
-            <IconButton icon={icons.backArrow} label="Go back" onPress={goBack} />
+            {/* All photo controls are transparent with white glyphs — no
+                discs over the photo. The heart is white until saved, then
+                red; share uses the same share sheet / copy flow as before. */}
+            <IconButton icon={icons.backArrow} label="Go back" onPress={goBack} transparent tintColor="#FFFFFF" />
             <View className="flex-row gap-xs">
               {canManage ? (
                 <>
@@ -461,6 +469,8 @@ export default function Property() {
                     icon={icons.edit}
                     label="Edit this listing"
                     onPress={() => router.push(`/properties/edit?id=${property.id}`)}
+                    transparent
+                    tintColor="#FFFFFF"
                   />
                   <IconButton
                     icon={icons.logout}
@@ -470,12 +480,11 @@ export default function Property() {
                       setConfirmingDelete(true);
                     }}
                     disabled={deleting}
-                    className="bg-danger/15"
+                    transparent
+                    tintColor="#FFFFFF"
                   />
                 </>
               ) : null}
-              {/* Saved state is red and stays red; unsaved turns red under the
-                  pointer so the affordance is visible before the click. */}
               <IconButton
                 icon={icons.heart}
                 label={isFavorite ? "Remove from saved properties" : "Save this property"}
@@ -486,17 +495,15 @@ export default function Property() {
                   else void toggleFavorite();
                 }}
                 disabled={savingFavorite}
-                tintColor={isFavorite ? "#F75555" : undefined}
-                className={`hover-heart ${isFavorite ? "bg-danger/20" : ""}`}
+                transparent
+                tintColor={isFavorite ? "#F75555" : "#FFFFFF"}
               />
-              {/* Tinted rather than plain white: a white disc on a pale hero
-                  image reads as a hole in the page, not as a button. */}
               <IconButton
                 icon={icons.send}
                 label="Share this property"
                 onPress={onShare}
-                tintColor="#0061FF"
-                className="hover-share bg-primary-100"
+                transparent
+                tintColor="#FFFFFF"
               />
             </View>
           </View>
@@ -1242,20 +1249,35 @@ export default function Property() {
                 <Text className="text-caption font-rubik-bold text-success">Tour request sent</Text>
                 <Text className="text-caption font-rubik text-black-200 dark:text-white/60 mt-2xs">
                   Tour on {tourDate}. The owner has been notified — it will appear in your bookings.
+                  The {money(TOUR_FEE)} tour fee is held in escrow until the tour.
                 </Text>
-                <Touchable
-                  onPress={() => router.push("/bookings")}
-                  accessibilityLabel="View my bookings"
-                  style={{ minHeight: 44, marginTop: 12 }}
-                  className="items-center justify-center rounded-full border border-success"
-                >
-                  <Text className="text-caption font-rubik-bold text-success">View</Text>
-                </Touchable>
+                <View className="flex-row gap-xs mt-sm">
+                  <Touchable
+                    onPress={() => router.push("/bookings")}
+                    accessibilityLabel="View my bookings"
+                    style={{ flex: 1, minHeight: 44 }}
+                    className="items-center justify-center rounded-full border border-success"
+                  >
+                    <Text className="text-caption font-rubik-bold text-success">View</Text>
+                  </Touchable>
+                  {lastBookingId ? (
+                    <Touchable
+                      onPress={() =>
+                        router.push(`/checkout?bookingId=${lastBookingId}&amount=${encodeURIComponent(String(TOUR_FEE))}`)
+                      }
+                      accessibilityLabel="Pay tour fee"
+                      style={{ flex: 1, minHeight: 44 }}
+                      className="items-center justify-center rounded-full bg-primary-300"
+                    >
+                      <Text className="text-caption font-rubik-bold text-white">Pay {money(TOUR_FEE)}</Text>
+                    </Touchable>
+                  ) : null}
+                </View>
               </View>
             ) : (
               <>
                 <Text className="text-caption font-rubik-medium text-black-200 dark:text-white/60 mt-lg mb-2xs">
-                  Tour date (YYYY-MM-DD)
+                  Preferred tour date (YYYY-MM-DD)
                 </Text>
                 <TextInput
                   value={tourDate}
@@ -1268,6 +1290,14 @@ export default function Property() {
                   accessibilityLabel="Tour date"
                   className="rounded-full border border-line dark:border-line-dark bg-surface dark:bg-surface-dark-muted px-md py-sm text-body font-rubik text-black-300 dark:text-white"
                 />
+                <View className="flex-row items-center justify-between mt-md p-md rounded-lg bg-surface-muted dark:bg-surface-dark-elevated">
+                  <Text className="text-body font-rubik text-black-200 dark:text-white/70">
+                    Tour fee (held in escrow)
+                  </Text>
+                  <Text className="text-body font-rubik-extrabold text-primary-300">
+                    {money(TOUR_FEE)}
+                  </Text>
+                </View>
                 <Text className="text-caption font-rubik-medium text-black-200 dark:text-white/60 mt-md mb-2xs">
                   Message (optional)
                 </Text>

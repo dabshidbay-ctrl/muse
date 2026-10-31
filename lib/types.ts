@@ -198,7 +198,8 @@ export type Booking = {
   total_price: number;
   status: BookingStatus;
   /** True for a tour request, not a stay: it must not block the calendar,
-      must never be charged, and shows as "Tour" in the bookings list. */
+      shows as "Tour" in the bookings list, and carries only the $15 tour
+      fee (held in escrow), never a rent payment. */
   is_tour: boolean;
   message: string | null;
   payment_status: PaymentStatus;
