@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import React, { useCallback, useMemo } from "react";
 import { FlatList, Image, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router, useFocusEffect } from "expo-router";
@@ -83,7 +83,12 @@ export default function PaymentsDashboard() {
       const mk = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
       const val = paid
         .filter((b) => {
-          const c = new Date(`${b.created_at}Z`);
+          // created_at may already carry Z or an offset; appending another Z
+          // made an Invalid Date and silently dropped the booking from its
+          // month bucket. Only add Z when no zone is present at all.
+          const raw = b.created_at;
+          const c = new Date(/([+-]\d{2}:?\d{2}|Z)$/.test(raw) ? raw : `${raw}Z`);
+          if (Number.isNaN(c.getTime())) return false;
           return `${c.getFullYear()}-${String(c.getMonth() + 1).padStart(2, "0")}` === mk;
         })
         .reduce((s, b) => s + Number(b.paid_amount ?? b.total_price), 0);
@@ -96,9 +101,14 @@ export default function PaymentsDashboard() {
   const sorted = [...items].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
   const maxMonthly = Math.max(...summary.monthly.map((m) => m.value), 1);
 
-  useFocusEffect(() => {
-    if (user?.id) void bookings.refetch();
-  });
+  // Memoised like every other screen's focus effect: an unmemoised callback
+  // re-fired on every render, and each refetch re-rendered, refetching in a
+  // loop for as long as the screen stayed focused.
+  useFocusEffect(
+    useCallback(() => {
+      if (user?.id) void bookings.refetch();
+    }, [user?.id, bookings.refetch])
+  );
 
   return (
     <SafeAreaView className="flex-1 bg-surface-muted dark:bg-surface-dark" edges={["top"]}>

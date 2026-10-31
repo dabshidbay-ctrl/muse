@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { Appearance } from "react-native";
+import { Appearance, Platform } from "react-native";
 import { colorScheme, useColorScheme } from "nativewind";
 import { captureError } from "./sentry";
 
@@ -42,8 +42,11 @@ function resolveScheme(mode: ThemeMode): "light" | "dark" {
 
 /** Pushes a mode into NativeWind, resolving "system" first. */
 export function applyTheme(mode: ThemeMode) {
-  // No DOM during the web prerender pass; the setter throws outright there.
-  if (!globalThis.window) return;
+  // Only the web prerender pass (Node, no window) must skip: the setter
+  // throws outright there. The old `!globalThis.window` guard also skipped
+  // native, where there is no `window` global at all — so a saved Light/Dark
+  // choice was silently inert on phones while working on web.
+  if (Platform.OS === "web" && typeof globalThis.window === "undefined") return;
   colorScheme.set(resolveScheme(mode));
 }
 
@@ -59,10 +62,10 @@ export function applyTheme(mode: ThemeMode) {
 export async function loadSavedTheme(): Promise<ThemeMode> {
   // `expo export --platform web` prerenders every route in Node, where
   // react-native-css-interop's setter throws outright ("Cannot manually set
-  // color scheme while not in a browser environment"). React Native defines
-  // `window`, so this only skips the server pass; the browser applies the
-  // theme on hydration.
-  if (!globalThis.window) return "system";
+  // color scheme while not in a browser environment"). Only that server pass
+  // is skipped; on native there is no `window` global, and skipping there
+  // used to ignore a saved Light/Dark choice on phones entirely.
+  if (Platform.OS === "web" && typeof globalThis.window === "undefined") return "system";
 
   try {
     const saved = await AsyncStorage.getItem(STORAGE_KEY);

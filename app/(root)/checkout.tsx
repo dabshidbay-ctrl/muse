@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from "react";
-import { Alert, ScrollView, Text, TextInput, View } from "react-native";
+import { ScrollView, Text, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router, useLocalSearchParams } from "expo-router";
 import { useSession } from "@/lib/useSession";
@@ -21,21 +21,28 @@ export default function CheckoutScreen() {
   const [phone, setPhone] = useState("");
   const [gateway, setGateway] = useState<PaymentGateway | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [phoneError, setPhoneError] = useState<string | null>(null);
   const [result, setResult] = useState<{
     success: boolean;
     message: string;
   } | null>(null);
 
   const numericAmount = parseFloat(amount ?? "0");
+  // A payment link with a missing, non-numeric or non-positive amount must
+  // never render a Pay button: "Pay $NaN" was reachable by editing the URL.
+  const amountValid = Number.isFinite(numericAmount) && numericAmount > 0;
 
   const submit = useCallback(async () => {
-    if (!bookingId || !user?.id || !gateway) return;
+    if (!bookingId || !user?.id || !gateway || !amountValid) return;
 
     const normalized = normalizePhone(phone);
     if (!normalized) {
-      Alert.alert("Invalid number", "Enter a Somali mobile number (e.g. 61 555 1234).");
+      // Inline, not Alert.alert: react-native-web's Alert is a no-op, so on
+      // web this failure was completely invisible and the button read dead.
+      setPhoneError("Enter a Somali mobile number (e.g. 61 555 1234).");
       return;
     }
+    setPhoneError(null);
 
     setSubmitting(true);
     setResult(null);
@@ -49,7 +56,9 @@ export default function CheckoutScreen() {
       });
 
       if (res.success) {
-        setResult({ success: true, message: "Payment successful! Your booking is confirmed." });
+        // Pay is only offered on owner-confirmed bookings (see bookings.tsx),
+        // so a successful payment really does mean confirmed + paid.
+        setResult({ success: true, message: "Payment successful! Your booking is confirmed and paid." });
       } else if (res.status === "pending") {
         setResult({
           success: true,
@@ -71,6 +80,47 @@ export default function CheckoutScreen() {
       setSubmitting(false);
     }
   }, [bookingId, user?.id, gateway, phone, numericAmount, supabase]);
+
+  // Invalid payment links get an error screen, never a Pay button.
+  if (!amountValid) {
+    return (
+      <SafeAreaView className="flex-1 bg-surface-muted dark:bg-surface-dark" edges={["top"]}>
+        <View
+          style={{ paddingHorizontal: gutter }}
+          className="flex-row items-center gap-sm pt-sm pb-xs"
+        >
+          <BackButton fallback="/bookings" />
+          <Text
+            accessibilityRole="header"
+            className="flex-1 text-h2 font-rubik-extrabold text-black-300 dark:text-white"
+          >
+            Pay with mobile money
+          </Text>
+        </View>
+        <View
+          style={{ paddingHorizontal: gutter, maxWidth: maxContentWidth, alignSelf: "center", width: "100%" }}
+        >
+          <View className="rounded-lg border border-danger bg-danger/10 p-md mt-lg">
+            <Text className="text-body font-rubik-bold text-danger">
+              This payment link is invalid
+            </Text>
+            <Text className="text-caption font-rubik text-black-200 dark:text-white/60 mt-2xs">
+              The amount on this link is missing or not a valid number. Go back to
+              My bookings and open the payment from there.
+            </Text>
+            <Touchable
+              onPress={() => router.replace("/bookings")}
+              accessibilityLabel="View my bookings"
+              style={{ minHeight: 44, marginTop: 12 }}
+              className="items-center justify-center rounded-full border border-danger"
+            >
+              <Text className="text-caption font-rubik-bold text-danger">View my bookings</Text>
+            </Touchable>
+          </View>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView className="flex-1 bg-surface-muted dark:bg-surface-dark" edges={["top"]}>
@@ -126,6 +176,11 @@ export default function CheckoutScreen() {
             className="rounded-md border border-line dark:border-line-dark px-md py-sm text-body font-rubik bg-surface dark:bg-surface-dark-muted text-black-300 dark:text-white"
             style={{ minHeight: 48 }}
           />
+          {phoneError ? (
+            <Text accessibilityRole="alert" className="text-caption font-rubik-medium text-danger mt-2xs">
+              {phoneError}
+            </Text>
+          ) : null}
           <Text className="text-caption font-rubik text-black-100 dark:text-white/40 mt-2xs">
             We'll send a payment request to this number. Enter your EVC+, Zaad, eDahab, or Premier
             Wallet number.
@@ -203,21 +258,27 @@ export default function CheckoutScreen() {
           </View>
         ) : null}
 
-        {/* Submit button */}
-        <Touchable
-          onPress={submit}
-          disabled={submitting || !gateway || !phone.trim()}
-          accessibilityLabel="Pay now"
-          accessibilityState={{ disabled: submitting || !gateway || !phone.trim(), busy: submitting }}
-          style={{ minHeight: 52, marginTop: 24 }}
-          className="items-center justify-center rounded-full bg-primary-300"
-        >
-          <Text className="text-body font-rubik-bold text-white">
-            {submitting
-              ? "Processing…"
-              : `Pay ${money(numericAmount)} with ${gateway ? PAYMENT_GATEWAYS.find((g) => g.value === gateway)?.label ?? "" : "…"}`}
-          </Text>
-        </Touchable>
+        {/* Submit button — hidden once a payment has succeeded, so a second
+            tap cannot fire a second payment for the same booking. Failures
+            keep the button so the user can retry. */}
+        {!result?.success ? (
+          <Touchable
+            onPress={submit}
+            disabled={submitting || !gateway || !phone.trim()}
+            accessibilityLabel="Pay now"
+            accessibilityState={{ disabled: submitting || !gateway || !phone.trim(), busy: submitting }}
+            style={{ minHeight: 52, marginTop: 24 }}
+            className="items-center justify-center rounded-full bg-primary-300"
+          >
+            <Text className="text-body font-rubik-bold text-white">
+              {submitting
+                ? "Processing…"
+                : !gateway
+                  ? "Choose a payment method"
+                  : `Pay ${money(numericAmount)} with ${PAYMENT_GATEWAYS.find((g) => g.value === gateway)?.label ?? ""}`}
+            </Text>
+          </Touchable>
+        ) : null}
       </ScrollView>
     </SafeAreaView>
   );

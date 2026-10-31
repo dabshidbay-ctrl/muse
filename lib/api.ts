@@ -246,7 +246,10 @@ export async function ensureProfile(
       .select("*")
       .maybeSingle();
 
-    if (error) throw error;
+    // The mirror write is best-effort: if it is ever refused (RLS, network
+    // blip), the read above already succeeded, so return the existing row
+    // instead of turning a cosmetic refresh into a total profile-load failure.
+    if (error) return existing as Profile;
     return (data as Profile | null) ?? (existing as Profile);
   }
 
@@ -642,9 +645,20 @@ export async function updateProperty(
     .select("*")
     .single();
 
-  // Same PGRST204 fallback as createProperty: if the live schema cache lacks
-  // living_rooms/floor_number/service_fee, retry without them so an edit to
-  // facilities, amenities, price, etc. is not blocked by optional fields.
+  // Progressive PGRST204 fallback, mirroring createProperty: first retry
+  // without living_rooms/floor_number only, then without the service fee as
+  // well. Dropping all three at once used to silently discard a fee the
+  // owner had just typed, even when only one column was missing.
+  if (error && (error as { code?: string }).code === "PGRST204") {
+    const { living_rooms: _lr, floor_number: _fn, ...withoutRooms } =
+      payload as Record<string, unknown>;
+    ({ data, error } = await supabase
+      .from("properties")
+      .update(withoutRooms)
+      .eq("id", id)
+      .select("*")
+      .single());
+  }
   if (error && (error as { code?: string }).code === "PGRST204") {
     const { living_rooms: _lr, floor_number: _fn, service_fee: _sf, ...rest } =
       payload as Record<string, unknown>;

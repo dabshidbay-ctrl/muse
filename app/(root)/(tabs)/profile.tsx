@@ -1,6 +1,7 @@
-import React, { useState } from "react";
+import React, { Component, useState, type ReactNode } from "react";
 import { Image, ScrollView, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import Constants from "expo-constants";
 import { router } from "expo-router";
 import { useSession } from "@/lib/useSession";
 import { signOut } from "@/lib/supabase";
@@ -51,7 +52,65 @@ function Row({
   );
 }
 
-export default function Profile() {
+const APP_VERSION = Constants.expoConfig?.version ?? "";
+
+/**
+ * If anything in the profile screen itself throws during render, the app
+ * must show this fallback instead of exiting: a single screen's render bug
+ * must never take down the whole app, and the fallback says which version
+ * the user is on so a crash report can be matched to a build.
+ */
+class ProfileErrorBoundary extends Component<
+  { children: ReactNode },
+  { hasError: boolean }
+> {
+  state = { hasError: false };
+
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error: unknown) {
+    captureError(error, "profile-render");
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <SafeAreaView
+          className="flex-1 bg-surface-muted dark:bg-surface-dark"
+          edges={["top"]}
+        >
+          <View className="flex-1 items-center justify-center px-lg">
+            <Text className="text-h2 font-rubik-bold text-black-300 dark:text-white text-center">
+              Profile couldn&apos;t load
+            </Text>
+            <Text className="text-body font-rubik text-black-200 dark:text-white/60 mt-sm text-center">
+              Something went wrong on this screen. Your account and listings are
+              safe — try going home and coming back.
+            </Text>
+            <Touchable
+              onPress={() => router.replace("/")}
+              accessibilityLabel="Go home"
+              className="items-center justify-center rounded-full bg-primary-300"
+              style={{ minHeight: 56, marginTop: 24, alignSelf: "stretch" }}
+            >
+              <Text className="text-body font-rubik-bold text-white">Go home</Text>
+            </Touchable>
+            {APP_VERSION ? (
+              <Text className="text-caption font-rubik text-black-100 dark:text-white/40 mt-lg">
+                ReState v{APP_VERSION}
+              </Text>
+            ) : null}
+          </View>
+        </SafeAreaView>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+function ProfileInner() {
   const { user, isSignedIn } = useSession();
   const { canPublish, isAdmin, loading: profileLoading, error: profileError } = useProfile();
   const { gutter, maxContentWidth } = useResponsive();
@@ -147,6 +206,11 @@ export default function Profile() {
           >
             <Text className="text-lead font-rubik-bold text-primary-300">Create account</Text>
           </Touchable>
+          {APP_VERSION ? (
+            <Text className="text-caption font-rubik text-black-100 dark:text-white/40 text-center mt-lg">
+              ReState v{APP_VERSION}
+            </Text>
+          ) : null}
         </View>
       </SafeAreaView>
     );
@@ -350,7 +414,20 @@ export default function Profile() {
             {signOutError}
           </Text>
         ) : null}
+        {APP_VERSION ? (
+          <Text className="text-caption font-rubik text-black-100 dark:text-white/40 text-center mt-lg">
+            ReState v{APP_VERSION}
+          </Text>
+        ) : null}
       </ScrollView>
     </SafeAreaView>
+  );
+}
+
+export default function Profile() {
+  return (
+    <ProfileErrorBoundary>
+      <ProfileInner />
+    </ProfileErrorBoundary>
   );
 }

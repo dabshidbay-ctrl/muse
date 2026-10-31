@@ -209,6 +209,23 @@ export default function Index() {
         }
         ListFooterComponent={
           <View className="items-center py-xl">
+            {/* Recommended is capped at 20 with no paging: without this, the
+                listings past 20 were silently unreachable from Home. */}
+            {(all?.length ?? 0) >= 20 ? (
+              <>
+                <Text className="text-caption font-rubik text-black-200 dark:text-white/60 text-center">
+                  Showing the first 20 — see the rest on Explore.
+                </Text>
+                <Touchable
+                  onPress={() => router.push("/explore")}
+                  accessibilityLabel="See all homes on Explore"
+                  style={{ minHeight: 44, marginTop: 12, paddingHorizontal: 24 }}
+                  className="items-center justify-center rounded-full border border-primary-300"
+                >
+                  <Text className="text-body font-rubik-bold text-primary-300">See all homes</Text>
+                </Touchable>
+              </>
+            ) : null}
             <Text className="text-body font-rubik-bold text-black-300 dark:text-white">
               ReState
             </Text>

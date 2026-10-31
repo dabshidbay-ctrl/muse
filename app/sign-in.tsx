@@ -11,6 +11,7 @@ import {
     View,
 } from 'react-native'
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
+import Constants from 'expo-constants'
 import { Redirect, router, useLocalSearchParams } from 'expo-router'
 import * as WebBrowser from 'expo-web-browser'
 import {
@@ -791,6 +792,11 @@ const SignIn = () => {
                                     <Text className="text-caption font-rubik text-black-100 dark:text-white/40 text-center mt-md">
                                         By continuing you agree to our Terms and Privacy Policy.
                                     </Text>
+                                    {Constants.expoConfig?.version ? (
+                                        <Text className="text-caption font-rubik text-black-100 dark:text-white/40 text-center mt-xs">
+                                            ReState v{Constants.expoConfig.version}
+                                        </Text>
+                                    ) : null}
                                 </>
                             )}
                         </View>

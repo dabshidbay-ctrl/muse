@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { FlatList, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useSession } from "@/lib/useSession";
@@ -27,11 +27,18 @@ export default function Favorites() {
   // card would flash the filled heart for a moment.
   const [favoriteIds, setFavoriteIds] = useState<Set<string> | null>(null);
 
-  // Seed the set from the first data load and keep it in sync with toggles.
+  // Seed the set from the data load in an effect, never during render:
+  // render-phase setState is fragile, and the old seed ran only while the
+  // set was null, so a property favourited elsewhere later still showed an
+  // unfilled heart here. The list itself is the favourite list, so before
+  // the first seed every card is favourited by definition.
   const items = properties ?? [];
-  if (!favoriteIds && items.length) {
+  useEffect(() => {
     setFavoriteIds(new Set(items.map((p) => p.id)));
-  }
+    // Depend on the fetched data, not the derived array (new identity every
+    // render), so optimistic toggles are not clobbered by re-seeding.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [properties]);
 
   const handleToggle = useCallback(
     async (propertyId: string, currentlyFav: boolean) => {
@@ -119,8 +126,10 @@ export default function Favorites() {
           <PropertyCard
             item={item}
             index={index}
-            isFavorite={favoriteIds?.has(item.id) ?? false}
-            onToggleFavorite={() => handleToggle(item.id, true)}
+            isFavorite={favoriteIds ? favoriteIds.has(item.id) : true}
+            onToggleFavorite={() =>
+              handleToggle(item.id, favoriteIds ? favoriteIds.has(item.id) : true)
+            }
           />
         )}
       />

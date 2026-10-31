@@ -3,9 +3,11 @@
 //   POST /sifalo-checkout          → initiate a direct wallet payment
 //   POST /sifalo-checkout?status=1 → check payment status by order_id
 //
-// The client never sees the Sifalo API key. The JWT is verified so only
-// signed-in users can call this, and the service_role key from the env lets
-// the function update the booking row.
+// The client never sees the Sifalo API key. The caller's Supabase JWT is
+// verified in handlePayment, the booking is fetched server-side, and only
+// the booking's owner may pay it, for exactly its stored total (or the $15
+// tour fee). The service_role key from the env lets the function update the
+// booking row after those checks.
 //
 // --- e-Wallet API ---
 // POST https://api.sifalopay.com/gateway/
@@ -76,7 +78,7 @@ Deno.serve(async (req: Request) => {
     if (isStatus) {
       return await handleStatus(body);
     }
-    return await handlePayment(body);
+    return await handlePayment(body, req);
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     console.error("sifalo-checkout error:", msg);
@@ -84,7 +86,7 @@ Deno.serve(async (req: Request) => {
   }
 });
 
-async function handlePayment(body: Record<string, unknown>) {
+async function handlePayment(body: Record<string, unknown>, req: Request) {
   const { bookingId, amount, account, gateway } = body as {
     bookingId?: string;
     amount?: number;
@@ -104,6 +106,50 @@ async function handlePayment(body: Record<string, unknown>) {
     throw new Error("Selected payment method is not supported. Please pick another.");
   }
 
+  // Verify the caller before touching anything. The client sends its
+  // Supabase session JWT in Authorization, and the service_role client below
+  // bypasses RLS — without this check, anyone could mark ANY booking paid
+  // for ANY amount by calling the function directly, because the old code
+  // trusted the client-supplied bookingId and amount outright.
+  const authHeader = req.headers.get("Authorization");
+  if (!authHeader?.startsWith("Bearer ")) {
+    throw new Error("Sign in to pay.");
+  }
+  const supabase = getSupabase();
+  const { data: { user }, error: authError } = await supabase.auth.getUser(
+    authHeader.slice("Bearer ".length),
+  );
+  if (authError || !user) {
+    throw new Error("Sign in to pay.");
+  }
+
+  // The booking is the source of truth, not the client's URL parameters.
+  const { data: booking, error: bookingError } = await supabase
+    .from("bookings")
+    .select("id, guest_id, total_price, is_tour, payment_status")
+    .eq("id", bookingId)
+    .maybeSingle();
+  if (bookingError || !booking) {
+    throw new Error("Booking not found.");
+  }
+  if (booking.guest_id !== user.id) {
+    throw new Error("This booking belongs to someone else.");
+  }
+  if (booking.payment_status === "paid") {
+    throw new Error("This booking is already paid.");
+  }
+  // Tours charge the flat $15 fee (must match TOUR_FEE in the app); stays
+  // charge the booking's stored total. The amount Sifalo is asked for, and
+  // the amount recorded as paid, is this server-side figure — never the
+  // amount the client sent.
+  const expectedAmount = booking.is_tour ? 15 : Number(booking.total_price);
+  if (!Number.isFinite(expectedAmount) || expectedAmount <= 0) {
+    throw new Error("This booking has no valid amount to pay.");
+  }
+  if (Number(amount) !== expectedAmount) {
+    throw new Error("The payment amount does not match this booking.");
+  }
+
   const orderId = `booking_${bookingId}_${Date.now()}`;
 
   // Sifalo expects the national number without the country code prefix.
@@ -119,7 +165,7 @@ async function handlePayment(body: Record<string, unknown>) {
     body: JSON.stringify({
       account: rawAccount,
       gateway,
-      amount: String(amount),
+      amount: String(expectedAmount),
       currency: "USD",
       order_id: orderId,
     }),
@@ -174,14 +220,13 @@ async function handlePayment(body: Record<string, unknown>) {
     status = "failure";
   }
 
-  // Update the booking row
-  const supabase = getSupabase();
+  // Update the booking row (supabase client was created above for auth).
   await supabase
     .from("bookings")
     .update({
       payment_status: status === "success" ? "paid" : status === "pending" ? "pending" : "failed",
       sifalo_sid: sid || null,
-      paid_amount: status === "success" ? amount : null,
+      paid_amount: status === "success" ? expectedAmount : null,
       payment_method: gateway.toUpperCase(),
     })
     .eq("id", bookingId);

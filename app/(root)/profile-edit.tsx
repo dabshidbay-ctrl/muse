@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Alert, Image, ScrollView, Text, TextInput, View } from "react-native";
+import { Image, ScrollView, Text, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import { describeSupabaseError, supabase } from "@/lib/supabase";
@@ -9,7 +9,7 @@ import type { SelfAssignableRole } from "@/lib/types";
 import { useSession } from "@/lib/useSession";
 import { useProfile } from "@/lib/useProfile";
 import { SPACE, useResponsive } from "@/lib/responsive";
-import { BackButton, EmptyState, Skeleton, Touchable, goBack } from "@/components/ui";
+import { BackButton, EmptyState, Skeleton, Touchable } from "@/components/ui";
 import { captureError } from "@/lib/sentry";
 
 /**
@@ -104,6 +104,11 @@ export default function ProfileEdit() {
   const [phone, setPhone] = useState("");
   const [submitted, setSubmitted] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [savedNotice, setSavedNotice] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  // The phone value the form was seeded with: "Save" must be enabled by a
+  // real change, not merely by having a phone number on file.
+  const [seededPhone, setSeededPhone] = useState("");
 
   // The session and the profile row both resolve asynchronously, so seeding
   // useState once at mount would leave the field permanently blank. Seed on the
@@ -128,7 +133,12 @@ export default function ProfileEdit() {
     if (phoneSeeded.current || !user?.id) return;
     phoneSeeded.current = true;
     getMyPhone(supabase, user.id)
-      .then((value) => value && setPhone(value))
+      .then((value) => {
+        if (value) {
+          setPhone(value);
+          setSeededPhone(value);
+        }
+      })
       .catch((err) => captureError(err, "phone-load"));
   }, [user?.id]);
 
@@ -160,7 +170,7 @@ export default function ProfileEdit() {
     trimmed !== (profile?.full_name ?? "") ||
     roleChanged ||
     identityChanged ||
-    phone.trim() !== "";
+    phone.trim() !== seededPhone.trim();
   // The button stays enabled while the name is invalid so that pressing it can
   // surface *why* — a silently dead control gives the user nothing to fix.
   const canSubmit = dirty && !saving;
@@ -192,16 +202,20 @@ export default function ProfileEdit() {
       const normalizedPhone = normalizePhone(phone);
       if (normalizedPhone) await saveMyPhone(supabase, user.id, normalizedPhone);
       await refresh();
-      Alert.alert(
-        "Profile saved",
+      // Inline notice, not Alert.alert + immediate goBack: on native the
+      // dialog used to appear over the profile screen the user had just been
+      // sent to, and on web Alert is a no-op so nothing showed at all. The
+      // user stays here, sees the confirmation, and goes back when ready.
+      setSaveError(null);
+      setSavedNotice(
         roleChanged
           ? "Your details have been updated. Your account type changed, so publishing options have been updated too."
           : "Your details have been updated."
       );
-      goBack("/profile");
     } catch (err) {
       captureError(err, "profile-save");
-      Alert.alert("Could not save profile", describeSupabaseError(err));
+      setSavedNotice(null);
+      setSaveError(describeSupabaseError(err));
     } finally {
       setSaving(false);
     }
@@ -437,6 +451,23 @@ export default function ProfileEdit() {
             className="text-caption font-rubik-medium text-danger mt-md"
           >
             Please fix the highlighted field before saving.
+          </Text>
+        ) : null}
+
+        {savedNotice ? (
+          <Text
+            accessibilityLiveRegion="polite"
+            className="text-caption font-rubik-medium text-success mt-md"
+          >
+            {savedNotice}
+          </Text>
+        ) : null}
+        {saveError ? (
+          <Text
+            accessibilityRole="alert"
+            className="text-caption font-rubik-medium text-danger mt-md"
+          >
+            Could not save profile: {saveError}
           </Text>
         ) : null}
 

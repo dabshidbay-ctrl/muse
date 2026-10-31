@@ -537,7 +537,12 @@ export default function MarketplaceItemScreen() {
             )
           ) : !user?.id && item.status === "approved" ? (
             <Touchable
-              onPress={() => router.push("/sign-in")}
+              onPress={() =>
+                router.push({
+                  pathname: "/sign-in",
+                  params: { returnTo: `/marketplace/${item.id}` },
+                })
+              }
               accessibilityLabel="Sign in to contact the seller"
               accessibilityHint="You need an account before you can share your number with the seller"
               style={{ minHeight: 52, marginTop: 12 }}

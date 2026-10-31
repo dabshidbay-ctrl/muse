@@ -10,7 +10,7 @@ import {
 } from "react-native";
 import { IconButton, Skeleton } from "@/components/ui";
 import icons from "@/constants/icons";
-import { captureError } from "@/lib/sentry";
+
 import { shadow } from "@/lib/responsive";
 
 /** Beyond this, a dot row is an unreadable smear — fall back to "3 / 18". */
@@ -75,7 +75,9 @@ function Slide({
       (err) => {
         // Not fatal: without a measurement the slide simply falls back to
         // filling the box, and a genuinely broken URL is caught by onError.
-        if (alive) captureError(err, "gallery-image-size");
+        // Kept out of Sentry on purpose — remote images without CORS fail
+        // this on web constantly, and it used to spam error reports.
+        if (alive && __DEV__) console.warn("gallery-image-size", err);
       }
     );
     return () => {

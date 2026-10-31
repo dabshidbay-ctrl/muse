@@ -210,11 +210,14 @@ export default function PropertyForm({
       const f = Number(floorNumber);
       if (!Number.isInteger(f) || f < 0) e.floorNumber = "Enter a whole floor number, or leave it blank.";
     }
-    if (photos.length < MIN_PHOTOS)
+    // The 2-photo minimum applies to creating a listing, not to editing one:
+    // a legacy or cover-only listing used to be uneditable (price, fee,
+    // description) until the owner added a second photo.
+    if (!initial && photos.length < MIN_PHOTOS)
       e.photos = `Add at least ${MIN_PHOTOS} photos — ${photos.length} so far.`;
     if (photos.length > MAX_PHOTOS) e.photos = `Remove some photos — the limit is ${MAX_PHOTOS}.`;
     return e;
-  }, [name, price, serviceFee, floorNumber, photos.length]);
+  }, [name, price, serviceFee, floorNumber, photos.length, initial]);
 
   const valid = Object.keys(errors).length === 0;
 

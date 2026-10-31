@@ -1,5 +1,5 @@
 import React, { useCallback, useRef, useState } from "react";
-import { Alert, FlatList, Image, Text, View } from "react-native";
+import { FlatList, Image, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router, useFocusEffect } from "expo-router";
 import { useSession } from "@/lib/useSession";
@@ -44,6 +44,7 @@ export default function Bookings() {
   const { gutter, maxContentWidth } = useResponsive();
   const [tab, setTab] = useState<"mine" | "requests">("mine");
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [respondError, setRespondError] = useState<string | null>(null);
 
   const mine = useSupabase({
     fn: getMyBookings,
@@ -61,6 +62,7 @@ export default function Bookings() {
 
   const respond = useCallback(
     async (booking: BookingWithProperty, status: BookingStatus) => {
+      setRespondError(null);
       setBusyId(booking.id);
       try {
         await updateBookingStatus(supabase, booking.id, status);
@@ -68,7 +70,9 @@ export default function Bookings() {
         await Promise.all([mine.refetch(), requests.refetch()]);
       } catch (err) {
         captureError(err, "booking-respond");
-        Alert.alert("Could not update booking", describeSupabaseError(err));
+        // Inline, not Alert.alert: on web Alert is a no-op and the failure
+        // was invisible to the owner.
+        setRespondError(describeSupabaseError(err));
       } finally {
         setBusyId(null);
       }
@@ -152,6 +156,16 @@ export default function Bookings() {
           );
         })}
       </View>
+
+      {respondError ? (
+        <Text
+          accessibilityRole="alert"
+          style={{ marginHorizontal: gutter }}
+          className="text-caption font-rubik-medium text-danger mt-sm"
+        >
+          Could not update booking: {respondError}
+        </Text>
+      ) : null}
 
       <FlatList
         data={active.initialLoading ? [] : items}
@@ -273,9 +287,12 @@ export default function Bookings() {
                 <StatusPill status={item.status} />
               </Touchable>
 
-              {/* Guest: pay now button for unpaid bookings. Tours are payable
+              {/* Guest: pay now button, only once the owner has confirmed.
+                  Paying a merely-pending request let a guest pay and the owner
+                  decline afterwards, with the money sitting nowhere — so
+                  pending requests show no Pay button at all. Tours are payable
                   too: their $15 fee is held in escrow, it is not a rent payment. */}
-              {tab === "mine" && item.payment_status === "unpaid" && item.status !== "cancelled" && item.status !== "declined" ? (
+              {tab === "mine" && item.payment_status === "unpaid" && item.status === "confirmed" ? (
                 <View className="mt-md">
                   <Touchable
                     onPress={() =>

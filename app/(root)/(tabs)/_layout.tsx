@@ -56,7 +56,8 @@ export default function TabsLayout() {
         tabBarInactiveTintColor: bar.inactive,
         tabBarLabelStyle: {
           fontFamily: "Rubik-Medium",
-          fontSize: 12,
+          // 12px primary nav labels were small for a mobile-first app.
+          fontSize: 13,
           lineHeight: 16,
           marginTop: 2,
         },

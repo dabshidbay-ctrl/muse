@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Alert, Image, Linking, Modal, ScrollView, Text, TextInput, View } from "react-native";
+import { Image, Linking, Modal, ScrollView, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { router, useLocalSearchParams } from "expo-router";
 import { useSession } from "@/lib/useSession";
@@ -128,6 +128,7 @@ export default function Property() {
 
   const [isFavorite, setIsFavorite] = useState(false);
   const [savingFavorite, setSavingFavorite] = useState(false);
+  const [favoriteError, setFavoriteError] = useState<string | null>(null);
 
   // Reflect whether this property is already saved for the signed-in user.
   useEffect(() => {
@@ -159,6 +160,7 @@ export default function Property() {
 
   const toggleFavorite = useCallback(async () => {
     if (!user?.id || !id || savingFavorite) return;
+    setFavoriteError(null);
     const next = !isFavorite;
     setSavingFavorite(true);
     setIsFavorite(next); // optimistic
@@ -168,11 +170,28 @@ export default function Property() {
     } catch (err) {
       setIsFavorite(!next); // roll back on failure
       captureError(err, "favourite-toggle");
-      Alert.alert("Could not update saved properties", "Please try again.");
+      // Inline, not Alert.alert: on web Alert is a no-op and the failure
+      // was invisible.
+      setFavoriteError("Could not update saved properties. Please try again.");
     } finally {
       setSavingFavorite(false);
     }
   }, [user?.id, id, isFavorite, savingFavorite]);
+
+  // Calling support: guarded, never a bare openURL — on a device without a
+  // dialer the old call was an unhandled rejection, and the user got nothing.
+  const [callError, setCallError] = useState<string | null>(null);
+  const callSupport = useCallback(async () => {
+    if (!SUPPORT_PHONE) return;
+    setCallError(null);
+    const url = `tel:${SUPPORT_PHONE.replace(/[^+\d]/g, "")}`;
+    try {
+      if (await Linking.canOpenURL(url)) await Linking.openURL(url);
+      else setCallError("No phone app is available on this device to place the call.");
+    } catch {
+      setCallError("Could not open the phone app. Dial the number shown above manually.");
+    }
+  }, []);
 
   // Shares a link to the property's page on the deployed website, so the
   // recipient opens the listing in a browser instead of a dead app-only URL.
@@ -344,6 +363,9 @@ export default function Property() {
         totalPrice: rentTotal,
       });
       void refetchBooked();
+      // Mirror the booking path: close the sheet on success, so a second
+      // tap cannot insert a second rent request for the same months.
+      setBookingOpen(false);
       setLastBookingId(created.id);
       setRentSent(true);
     } catch (err) {
@@ -507,7 +529,11 @@ export default function Property() {
                 // A public visitor has nothing to save yet: send them to
                 // sign-in instead of a disabled button that explains nothing.
                 onPress={() => {
-                  if (!user?.id) router.push("/sign-in");
+                  if (!user?.id)
+                    router.push({
+                      pathname: "/sign-in",
+                      params: { returnTo: `/properties/${property.id}` },
+                    });
                   else void toggleFavorite();
                 }}
                 disabled={savingFavorite}
@@ -602,6 +628,11 @@ export default function Property() {
           >
             {property.name}
           </Text>
+          {favoriteError ? (
+            <Text accessibilityRole="alert" className="text-caption font-rubik-medium text-danger mt-2xs">
+              {favoriteError}
+            </Text>
+          ) : null}
           {property.address ? (
             <Text className="text-body font-rubik text-black-200 dark:text-white/60 mt-2xs">
               {property.address}
@@ -744,7 +775,7 @@ export default function Property() {
                 Questions about this listing?
               </Text>
               <Touchable
-                onPress={() => void Linking.openURL(`tel:${SUPPORT_PHONE.replace(/[^+\d]/g, "")}`)}
+                onPress={() => void callSupport()}
                 accessibilityLabel={`Call ${SUPPORT_PHONE} with questions`}
                 className="mt-xs"
               >
@@ -752,6 +783,11 @@ export default function Property() {
                   Call us: {SUPPORT_PHONE}
                 </Text>
               </Touchable>
+              {callError ? (
+                <Text accessibilityRole="alert" className="text-caption font-rubik-medium text-danger mt-2xs">
+                  {callError}
+                </Text>
+              ) : null}
             </View>
           ) : null}
 
@@ -922,7 +958,10 @@ export default function Property() {
               <Touchable
                 onPress={() => {
                   if (!user?.id) {
-                    router.push("/sign-in");
+                    router.push({
+                      pathname: "/sign-in",
+                      params: { returnTo: `/properties/${property.id}` },
+                    });
                     return;
                   }
                   setTourSent(false);
@@ -937,7 +976,10 @@ export default function Property() {
               <Touchable
                 onPress={() => {
                   if (!user?.id) {
-                    router.push("/sign-in");
+                    router.push({
+                      pathname: "/sign-in",
+                      params: { returnTo: `/properties/${property.id}` },
+                    });
                     return;
                   }
                   setRentSent(false);
@@ -963,7 +1005,10 @@ export default function Property() {
                 // returns without one — so a public visitor is sent to
                 // sign-in here, instead of opening a form that can never send.
                 if (!user?.id) {
-                  router.push("/sign-in");
+                  router.push({
+                    pathname: "/sign-in",
+                    params: { returnTo: `/properties/${property.id}` },
+                  });
                   return;
                 }
                 setBookingSent(false);
@@ -1147,6 +1192,12 @@ export default function Property() {
                 <Text className="text-caption font-rubik text-black-200 dark:text-white/60 mt-2xs">
                   The owner has been notified and will confirm or decline.
                 </Text>
+                <Text className="text-caption font-rubik text-black-200 dark:text-white/60 mt-2xs">
+                  {/* Pay is only offered after the owner confirms (see My
+                      bookings), so a paid request can never be declined
+                      afterwards with the money sitting nowhere. */}
+                  Once the owner confirms, you can pay from My bookings.
+                </Text>
                 <View className="flex-row gap-xs mt-sm">
                   <Touchable
                     onPress={() => router.push("/bookings")}
@@ -1156,18 +1207,6 @@ export default function Property() {
                   >
                     <Text className="text-caption font-rubik-bold text-success">View</Text>
                   </Touchable>
-                  {lastBookingId ? (
-                    <Touchable
-                      onPress={() =>
-                        router.push(`/checkout?bookingId=${lastBookingId}&amount=${encodeURIComponent(String(rentTotal))}`)
-                      }
-                      accessibilityLabel="Pay now"
-                      style={{ flex: 1, minHeight: 44 }}
-                      className="items-center justify-center rounded-full bg-primary-300"
-                    >
-                      <Text className="text-caption font-rubik-bold text-white">Pay now</Text>
-                    </Touchable>
-                  ) : null}
                 </View>
               </View>
             ) : null}
@@ -1181,6 +1220,9 @@ export default function Property() {
                 <Text className="text-caption font-rubik text-black-200 dark:text-white/60 mt-2xs">
                   The owner has been notified and will confirm or decline.
                 </Text>
+                <Text className="text-caption font-rubik text-black-200 dark:text-white/60 mt-2xs">
+                  Once the owner confirms, you can pay from My bookings.
+                </Text>
                 <View className="flex-row gap-xs mt-sm">
                   <Touchable
                     onPress={() => router.push("/bookings")}
@@ -1192,22 +1234,6 @@ export default function Property() {
                       View
                     </Text>
                   </Touchable>
-                  {lastBookingId ? (
-                    <Touchable
-                      onPress={() =>
-                        router.push(
-                          `/checkout?bookingId=${lastBookingId}&amount=${encodeURIComponent(
-                            String(Math.round(Number(property.price) * nights) + serviceFee)
-                          )}`
-                        )
-                      }
-                      accessibilityLabel="Pay now"
-                      style={{ flex: 1, minHeight: 44 }}
-                      className="items-center justify-center rounded-full bg-primary-300"
-                    >
-                      <Text className="text-caption font-rubik-bold text-white">Pay now</Text>
-                    </Touchable>
-                  ) : null}
                 </View>
               </View>
             ) : null}
@@ -1293,19 +1319,10 @@ export default function Property() {
                   >
                     <Text className="text-caption font-rubik-bold text-success">View</Text>
                   </Touchable>
-                  {lastBookingId ? (
-                    <Touchable
-                      onPress={() =>
-                        router.push(`/checkout?bookingId=${lastBookingId}&amount=${encodeURIComponent(String(TOUR_FEE))}`)
-                      }
-                      accessibilityLabel="Pay tour fee"
-                      style={{ flex: 1, minHeight: 44 }}
-                      className="items-center justify-center rounded-full bg-primary-300"
-                    >
-                      <Text className="text-caption font-rubik-bold text-white">Pay {money(TOUR_FEE)}</Text>
-                    </Touchable>
-                  ) : null}
                 </View>
+                <Text className="text-caption font-rubik text-black-200 dark:text-white/60 mt-2xs">
+                  Once the owner confirms the tour, you can pay the {money(TOUR_FEE)} fee from My bookings.
+                </Text>
               </View>
             ) : (
               <>
@@ -1371,15 +1388,22 @@ export default function Property() {
                   </Text>
                 ) : null}
                 {SUPPORT_PHONE ? (
-                  <Touchable
-                    onPress={() => void Linking.openURL(`tel:${SUPPORT_PHONE.replace(/[^+\d]/g, "")}`)}
-                    accessibilityLabel={`Call ${SUPPORT_PHONE} with questions`}
-                    className="mt-md"
-                  >
-                    <Text className="text-body font-rubik-bold text-primary-300">
-                      Questions? Call us: {SUPPORT_PHONE}
-                    </Text>
-                  </Touchable>
+                  <>
+                    <Touchable
+                      onPress={() => void callSupport()}
+                      accessibilityLabel={`Call ${SUPPORT_PHONE} with questions`}
+                      className="mt-md"
+                    >
+                      <Text className="text-body font-rubik-bold text-primary-300">
+                        Questions? Call us: {SUPPORT_PHONE}
+                      </Text>
+                    </Touchable>
+                    {callError ? (
+                      <Text accessibilityRole="alert" className="text-caption font-rubik-medium text-danger mt-md">
+                        {callError}
+                      </Text>
+                    ) : null}
+                  </>
                 ) : null}
                 <Touchable
                   onPress={submitTour}
