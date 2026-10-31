@@ -1,1 +1,1 @@
-{"buildCommand":"npx expo export --platform web","cleanUrls":true,"installCommand":"npm ci","outputDirectory":"dist","rewrites":[{"destination":"/index.html","source":"/properties/:id"},{"destination":"/index.html","source":"/marketplace/:id"},{"destination":"/index.html","source":"/(.*)"}]}
+{"buildCommand":"npx expo export --platform web","installCommand":"npm ci","outputDirectory":"dist","rewrites":[{"destination":"/index.html","source":"/properties/:id"},{"destination":"/index.html","source":"/marketplace/:id"},{"destination":"/index.html","source":"/(.*)"}]}
