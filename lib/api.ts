@@ -595,34 +595,51 @@ export async function updateProperty(
     image?: string | null;
   }
 ): Promise<Property> {
-  const { data, error } = await supabase
+  const payload = {
+    ...(input.name !== undefined ? { name: input.name } : {}),
+    ...(input.type !== undefined ? { type: input.type } : {}),
+    // `undefined` leaves the district alone; an explicit `null` clears it
+    // back to "not specified", which is a real choice the form can make.
+    ...(input.district !== undefined ? { district: input.district } : {}),
+    ...(input.description !== undefined ? { description: input.description } : {}),
+    ...(input.address !== undefined ? { address: input.address } : {}),
+    ...(input.price !== undefined ? { price: input.price } : {}),
+    ...(input.area !== undefined ? { area: input.area } : {}),
+    ...(input.bedrooms !== undefined ? { bedrooms: input.bedrooms } : {}),
+    ...(input.bathrooms !== undefined ? { bathrooms: input.bathrooms } : {}),
+    ...(input.livingRooms !== undefined ? { living_rooms: input.livingRooms } : {}),
+    // Explicit null clears the floor back to "not specified"; `undefined`
+    // leaves it alone, matching the district convention above.
+    ...(input.floorNumber !== undefined ? { floor_number: input.floorNumber } : {}),
+    ...(input.facilities !== undefined ? { facilities: input.facilities } : {}),
+    ...(input.nearbyFacilities !== undefined
+      ? { nearby_facilities: input.nearbyFacilities }
+      : {}),
+    ...(input.rentalMode !== undefined ? { rental_mode: input.rentalMode } : {}),
+    ...(input.image !== undefined ? { image: input.image } : {}),
+  };
+  let { data, error } = await supabase
     .from("properties")
-    .update({
-      ...(input.name !== undefined ? { name: input.name } : {}),
-      ...(input.type !== undefined ? { type: input.type } : {}),
-      // `undefined` leaves the district alone; an explicit `null` clears it
-      // back to "not specified", which is a real choice the form can make.
-      ...(input.district !== undefined ? { district: input.district } : {}),
-      ...(input.description !== undefined ? { description: input.description } : {}),
-      ...(input.address !== undefined ? { address: input.address } : {}),
-      ...(input.price !== undefined ? { price: input.price } : {}),
-      ...(input.area !== undefined ? { area: input.area } : {}),
-      ...(input.bedrooms !== undefined ? { bedrooms: input.bedrooms } : {}),
-      ...(input.bathrooms !== undefined ? { bathrooms: input.bathrooms } : {}),
-      ...(input.livingRooms !== undefined ? { living_rooms: input.livingRooms } : {}),
-      // Explicit null clears the floor back to "not specified"; `undefined`
-      // leaves it alone, matching the district convention above.
-      ...(input.floorNumber !== undefined ? { floor_number: input.floorNumber } : {}),
-      ...(input.facilities !== undefined ? { facilities: input.facilities } : {}),
-      ...(input.nearbyFacilities !== undefined
-        ? { nearby_facilities: input.nearbyFacilities }
-        : {}),
-      ...(input.rentalMode !== undefined ? { rental_mode: input.rentalMode } : {}),
-      ...(input.image !== undefined ? { image: input.image } : {}),
-    })
+    .update(payload)
     .eq("id", id)
     .select("*")
     .single();
+
+  // Same PGRST204 fallback as createProperty: if the live schema cache lacks
+  // living_rooms/floor_number, retry without them so an edit to facilities,
+  // amenities, price, etc. is not blocked by two optional fields.
+  if (error && (error as { code?: string }).code === "PGRST204") {
+    const { living_rooms: _lr, floor_number: _fn, ...rest } = payload as Record<
+      string,
+      unknown
+    >;
+    ({ data, error } = await supabase
+      .from("properties")
+      .update(rest)
+      .eq("id", id)
+      .select("*")
+      .single());
+  }
 
   if (error) throw error;
   return data as Property;
