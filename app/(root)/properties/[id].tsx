@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Alert, Image, Modal, ScrollView, Text, TextInput, View } from "react-native";
+import { Alert, Image, Linking, Modal, ScrollView, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { router, useLocalSearchParams } from "expo-router";
 import { useSession } from "@/lib/useSession";
@@ -24,6 +24,7 @@ import { AvailabilityCalendar, isRangeAvailable } from "@/components/Availabilit
 import { PropertyGallery } from "@/components/PropertyGallery";
 import { Stepper } from "@/components/Stepper";
 import { shareProperty } from "@/lib/share";
+import { normalizePhone } from "@/lib/phone";
 import icons from "@/constants/icons";
 import { districts, facilities as FACILITIES_DATA } from "@/constants/data";
 import { captureError } from "@/lib/sentry";
@@ -48,6 +49,12 @@ const addMonthsISO = (iso: string, months: number) => {
 };
 
 const todayISO = () => new Date().toISOString().slice(0, 10);
+
+/** The number tenants call with questions, shown on the detail page and in
+    the tour sheet. Set EXPO_PUBLIC_SUPPORT_PHONE in the build (and in
+    .env.example) — the app never invents a number, so with it unset the
+    call block simply does not render. */
+const SUPPORT_PHONE = (process.env.EXPO_PUBLIC_SUPPORT_PHONE ?? "").trim();
 
 /** Add whole days to a yyyy-mm-dd date. */
 const addDaysISO = (iso: string, days: number) => {
@@ -357,6 +364,7 @@ export default function Property() {
   const TOUR_FEE = 15;
   const [tourOpen, setTourOpen] = useState(false);
   const [tourDate, setTourDate] = useState("");
+  const [tourWhatsApp, setTourWhatsApp] = useState("");
   const [tourMessage, setTourMessage] = useState("");
   const [tourSent, setTourSent] = useState(false);
   const [tourError, setTourError] = useState<string | null>(null);
@@ -371,6 +379,11 @@ export default function Property() {
       setTourError("The tour date cannot be in the past.");
       return;
     }
+    const whatsapp = normalizePhone(tourWhatsApp);
+    if (!whatsapp) {
+      setTourError("Enter your WhatsApp number, for example 61 555 1234 or +252 61 555 1234.");
+      return;
+    }
     setTourError(null);
     setSubmitting(true);
     try {
@@ -382,7 +395,10 @@ export default function Property() {
         checkOut: addDaysISO(tourDate, 1),
         guests: 1,
         totalPrice: TOUR_FEE,
-        message: tourMessage.trim() ? `Tour request: ${tourMessage.trim()}` : "Tour request",
+        // The owner's only way to reach the tenant is the WhatsApp number,
+        // so it goes first in the message — and the bookings list renders
+        // the message, so the owner actually sees it.
+        message: `Tour request — WhatsApp: ${whatsapp}${tourMessage.trim() ? ` — ${tourMessage.trim()}` : ""}`,
         isTour: true,
       });
       // check_out must be after check_in, so a tour occupies a 1-day window
@@ -396,7 +412,7 @@ export default function Property() {
     } finally {
       setSubmitting(false);
     }
-  }, [user?.id, property, tourDate, tourMessage]);
+  }, [user?.id, property, tourDate, tourWhatsApp, tourMessage]);
 
   if (loading) {
     return (
@@ -719,6 +735,23 @@ export default function Property() {
               <Text className="text-caption font-rubik text-black-100 dark:text-white/40 mt-xs">
                 The service fee is charged once, with the first payment.
               </Text>
+            </View>
+          ) : null}
+
+          {SUPPORT_PHONE ? (
+            <View className="mt-lg p-md rounded-lg bg-surface-muted dark:bg-surface-dark-elevated">
+              <Text className="text-body font-rubik-bold text-black-300 dark:text-white">
+                Questions about this listing?
+              </Text>
+              <Touchable
+                onPress={() => void Linking.openURL(`tel:${SUPPORT_PHONE.replace(/[^+\d]/g, "")}`)}
+                accessibilityLabel={`Call ${SUPPORT_PHONE} with questions`}
+                className="mt-xs"
+              >
+                <Text selectable className="text-body font-rubik-extrabold text-primary-300">
+                  Call us: {SUPPORT_PHONE}
+                </Text>
+              </Touchable>
             </View>
           ) : null}
 
@@ -1299,6 +1332,24 @@ export default function Property() {
                   </Text>
                 </View>
                 <Text className="text-caption font-rubik-medium text-black-200 dark:text-white/60 mt-md mb-2xs">
+                  Your WhatsApp number
+                </Text>
+                <TextInput
+                  value={tourWhatsApp}
+                  onChangeText={(v) => {
+                    setTourWhatsApp(v);
+                    setTourError(null);
+                  }}
+                  placeholder="61 555 1234"
+                  placeholderTextColor="#8C8E98"
+                  keyboardType="phone-pad"
+                  accessibilityLabel="Your WhatsApp number"
+                  className="rounded-full border border-line dark:border-line-dark bg-surface dark:bg-surface-dark-muted px-md py-sm text-body font-rubik text-black-300 dark:text-white"
+                />
+                <Text className="text-caption font-rubik text-black-100 dark:text-white/40 mt-2xs">
+                  The owner will contact you on this number about the tour.
+                </Text>
+                <Text className="text-caption font-rubik-medium text-black-200 dark:text-white/60 mt-md mb-2xs">
                   Message (optional)
                 </Text>
                 <TextInput
@@ -1318,6 +1369,17 @@ export default function Property() {
                   >
                     {tourError}
                   </Text>
+                ) : null}
+                {SUPPORT_PHONE ? (
+                  <Touchable
+                    onPress={() => void Linking.openURL(`tel:${SUPPORT_PHONE.replace(/[^+\d]/g, "")}`)}
+                    accessibilityLabel={`Call ${SUPPORT_PHONE} with questions`}
+                    className="mt-md"
+                  >
+                    <Text className="text-body font-rubik-bold text-primary-300">
+                      Questions? Call us: {SUPPORT_PHONE}
+                    </Text>
+                  </Touchable>
                 ) : null}
                 <Touchable
                   onPress={submitTour}

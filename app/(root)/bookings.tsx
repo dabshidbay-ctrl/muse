@@ -237,6 +237,17 @@ export default function Bookings() {
                       <Text className="text-caption font-rubik-bold text-primary-300">Tour</Text>
                     </View>
                   ) : null}
+                  {item.message ? (
+                    // The message is how a tour tenant leaves their WhatsApp
+                    // number — the owner must actually see it here, not just
+                    // in the database row.
+                    <Text
+                      numberOfLines={3}
+                      className="text-caption font-rubik text-black-200 dark:text-white/60 mt-2xs"
+                    >
+                      {item.message}
+                    </Text>
+                  ) : null}
                   <View className="flex-row items-center gap-xs mt-2xs">
                     <Text className="text-body font-rubik-extrabold text-primary-300">
                       {money(item.total_price)}
