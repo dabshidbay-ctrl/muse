@@ -126,7 +126,10 @@ const Field = React.forwardRef<React.ElementRef<typeof TextInput>, FieldProps>(f
         <View className="mt-md">
             {/* A visible label, not a placeholder-only field: placeholders vanish
                 on focus and are not reliably announced. */}
-            <Text className="text-caption font-rubik-medium text-black-200 dark:text-white/60 mb-2xs">
+            <Text
+                className="font-rubik-semibold text-black-200 dark:text-white/60 mb-2xs"
+                style={{ fontSize: 14, lineHeight: 20 }}
+            >
                 {label}
             </Text>
             <TextInput
@@ -182,7 +185,10 @@ const SignIn = () => {
 
     const { isSignedIn } = useSession()
     const insets = useSafeAreaInsets()
-    const { returnTo } = useLocalSearchParams<{ returnTo?: string }>()
+    const { returnTo, mode: modeParam } = useLocalSearchParams<{
+        returnTo?: string
+        mode?: string
+    }>()
     const safeReturnTo =
         typeof returnTo === 'string' && returnTo.startsWith('/') && returnTo !== '/sign-in'
             ? returnTo
@@ -205,7 +211,7 @@ const SignIn = () => {
         Math.round(height * (isLandscape ? 0.24 : 0.3)),
     )
 
-    const [mode, setMode] = useState<Mode>('signin')
+    const [mode, setMode] = useState<Mode>(modeParam === 'signup' ? 'signup' : 'signin')
     const [email, setEmail] = useState('')
     const [password, setPassword] = useState('')
     const [fullName, setFullName] = useState('')
@@ -670,7 +676,10 @@ const SignIn = () => {
                                                 alignSelf: 'flex-end',
                                             }}
                                         >
-                                            <Text className="text-caption font-rubik-medium text-primary-300">
+                                            <Text
+                                                className="font-rubik-semibold text-primary-300"
+                                                style={{ fontSize: 14, lineHeight: 20 }}
+                                            >
                                                 {busy === 'reset'
                                                     ? 'Sending…'
                                                     : 'Forgot password?'}
@@ -711,7 +720,12 @@ const SignIn = () => {
                                             busy: busy === 'email',
                                         }}
                                         className="items-center justify-center rounded-full bg-primary-300 py-md"
-                                        style={{ minHeight: 60, marginTop: SPACE.lg }}
+                                        style={{
+                                            minHeight: 60,
+                                            marginTop: SPACE.lg,
+                                            opacity: busy ? 0.6 : 1,
+                                            ...shadow({ opacity: 0.25, radius: 16, offsetY: 8, elevation: 4 }),
+                                        }}
                                     >
                                         {busy === 'email' ? (
                                             <ActivityIndicator size="small" color="#FFFFFF" />
@@ -743,6 +757,7 @@ const SignIn = () => {
                                         style={{
                                             minHeight: 60,
                                             marginTop: SPACE.lg,
+                                            opacity: busy ? 0.6 : 1,
                                             ...shadow({ opacity: 0.12, radius: 16, offsetY: 8, elevation: 3 }),
                                         }}
                                     >
@@ -766,7 +781,7 @@ const SignIn = () => {
                                                     accessible={false}
                                                     alt=""
                                                 />
-                                                <Text className="text-body font-rubik-semibold text-black-300 dark:text-white">
+                                                <Text className="text-body font-rubik-bold text-black-300 dark:text-white">
                                                     Continue with Google
                                                 </Text>
                                             </>

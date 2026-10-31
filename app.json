@@ -2,7 +2,7 @@
   "expo": {
     "name": "restate",
     "slug": "restate",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "restate",
@@ -14,7 +14,13 @@
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/icon.png",
         "backgroundColor": "#ffffff"
-      }
+      },
+      "permissions": [
+        "android.permission.RECORD_AUDIO",
+        "android.permission.RECORD_AUDIO"
+      ],
+      "package": "com.restate.app",
+      "versionCode": 2
     },
     "web": {
       "bundler": "metro",

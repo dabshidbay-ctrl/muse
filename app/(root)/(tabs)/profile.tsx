@@ -52,7 +52,7 @@ function Row({
 }
 
 export default function Profile() {
-  const { user } = useSession();
+  const { user, isSignedIn } = useSession();
   const { canPublish, isAdmin, loading: profileLoading, error: profileError } = useProfile();
   const { gutter, maxContentWidth } = useResponsive();
   const [signingOut, setSigningOut] = useState(false);
@@ -90,6 +90,67 @@ export default function Profile() {
       setSigningOut(false);
     }
   };
+
+  // Signed-out visitors land here directly — no layout redirect, no blank
+  // frame, nothing mid-transition to crash. This is the screen a signed-out
+  // Profile tap is supposed to show, and both buttons carry returnTo so
+  // signing in lands back on the real profile instead of Home.
+  if (!isSignedIn) {
+    return (
+      <SafeAreaView className="flex-1 bg-surface-muted dark:bg-surface-dark" edges={["top"]}>
+        <View
+          style={{
+            paddingHorizontal: gutter,
+            width: "100%",
+            maxWidth: maxContentWidth,
+            alignSelf: "center",
+            flex: 1,
+            justifyContent: "center",
+          }}
+        >
+          <View className="items-center">
+            <View className="size-28 rounded-full bg-primary-200 items-center justify-center">
+              <Image
+                source={icons.person}
+                style={{ width: 48, height: 48, tintColor: "#0061FF" }}
+                accessible={false}
+                alt=""
+              />
+            </View>
+            <Text className="text-h1 font-rubik-extrabold text-black-300 dark:text-white mt-lg text-center">
+              Your profile
+            </Text>
+            <Text className="text-body font-rubik text-black-200 dark:text-white/60 mt-sm text-center">
+              Sign in to see your bookings, saved properties and listings.
+            </Text>
+          </View>
+          <Touchable
+            onPress={() =>
+              router.push({ pathname: "/sign-in", params: { returnTo: "/profile" } })
+            }
+            accessibilityLabel="Sign in"
+            className="items-center justify-center rounded-full bg-primary-300"
+            style={{ minHeight: 60, marginTop: 32 }}
+          >
+            <Text className="text-lead font-rubik-bold text-white">Sign in</Text>
+          </Touchable>
+          <Touchable
+            onPress={() =>
+              router.push({
+                pathname: "/sign-in",
+                params: { returnTo: "/profile", mode: "signup" },
+              })
+            }
+            accessibilityLabel="Create account"
+            className="items-center justify-center rounded-full border border-primary-300"
+            style={{ minHeight: 60, marginTop: 12 }}
+          >
+            <Text className="text-lead font-rubik-bold text-primary-300">Create account</Text>
+          </Touchable>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView className="flex-1 bg-surface-muted dark:bg-surface-dark" edges={["top"]}>

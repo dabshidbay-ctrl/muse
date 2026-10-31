@@ -26,6 +26,11 @@ import { captureError } from "@/lib/sentry";
  */
 function isPublicPath(pathname: string): boolean {
   if (pathname === "/") return true;
+  // Profile handles signed-out visitors itself with a sign-in prompt (see
+  // (tabs)/profile.tsx) instead of being bounced by this guard: bouncing a
+  // tab tap mid-transition is what crashed the app on Android, so the guard
+  // must never fire for the tab that owns the tap.
+  if (pathname === "/profile") return true;
   // /marketplace and /explore are public tabs; /marketplace/new and
   // /marketplace/mine, and /properties/new, /properties/edit and
   // /properties/listings, are actions and stay behind sign-in.
