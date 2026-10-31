@@ -200,6 +200,14 @@ export default function PropertyForm({
   const errors = useMemo(() => {
     const e: Record<string, string> = {};
     if (!name.trim()) e.name = "Give the listing a name.";
+    // No phone numbers in descriptions: owners used to paste their number
+    // here to take the booking off the app. Any run of 3 connected digits
+    // is refused (a real phone number is 9), while bedroom counts and
+    // single digits stay allowed. The save is refused until the digits
+    // are removed, like every other field error in this form.
+    if (/\d{3,}/.test(description))
+      e.description =
+        "Descriptions can't include phone numbers — remove any run of 3 or more digits.";
     if (!Number.isFinite(num(price)) || num(price) <= 0) e.price = "Enter a price above 0.";
     if (serviceFee.trim() !== "" && (!Number.isFinite(num(serviceFee)) || num(serviceFee) < 0))
       e.serviceFee = "Enter a service fee of 0 or more, or leave it blank for no fee.";
@@ -217,7 +225,7 @@ export default function PropertyForm({
       e.photos = `Add at least ${MIN_PHOTOS} photos — ${photos.length} so far.`;
     if (photos.length > MAX_PHOTOS) e.photos = `Remove some photos — the limit is ${MAX_PHOTOS}.`;
     return e;
-  }, [name, price, serviceFee, floorNumber, photos.length, initial]);
+  }, [name, price, serviceFee, floorNumber, photos.length, initial, description]);
 
   const valid = Object.keys(errors).length === 0;
 
@@ -305,7 +313,9 @@ export default function PropertyForm({
         floorNumber: floorNumber.trim() === "" ? null : Number(floorNumber),
         facilities: picked,
         nearbyFacilities: nearby,
-        rentalMode,
+        // Belt and braces with the chip hiding above: even an edited legacy
+        // row can never be saved as a monthly hotel.
+        rentalMode: type === "hotel" ? "short_term" : rentalMode,
       };
       // Emptying an optional field has to go out as an explicit null on update:
       // `undefined` makes updateProperty skip that column, so clearing the
@@ -412,24 +422,32 @@ export default function PropertyForm({
             label={t.title}
             purpose="Property type"
             selected={type === t.category}
-            onPress={() => setType(t.category)}
+            onPress={() => {
+              setType(t.category);
+              // Hotels are daily rentals by definition: picking Hotel
+              // switches the mode to short-term at the same tap, so a
+              // hotel can never be saved as a monthly listing.
+              if (t.category === "hotel") setRentalMode("short_term");
+            }}
           />
         ))}
       </View>
 
-      {/* Rental mode — agencies are locked to monthly. */}
+      {/* Rental mode — agencies are locked to monthly, hotels to daily. */}
       <Text className="text-caption font-rubik-medium text-black-200 dark:text-white/60 mt-md mb-2xs">
         Rental mode
       </Text>
       <View className="flex-row flex-wrap gap-xs">
-        <Chip
-          label="Monthly"
-          purpose="Rental mode"
-          selected={rentalMode === "monthly"}
-          onPress={() => setRentalMode("monthly")}
-        />
         {/* Omitted rather than rendered inert: a chip that looks selectable but
             silently ignores the tap is worse than not offering the option. */}
+        {type !== "hotel" && (
+          <Chip
+            label="Monthly"
+            purpose="Rental mode"
+            selected={rentalMode === "monthly"}
+            onPress={() => setRentalMode("monthly")}
+          />
+        )}
         {!isAgency && (
           <Chip
             label="Short-term (BnB)"
@@ -442,6 +460,11 @@ export default function PropertyForm({
       {isAgency ? (
         <Text className="text-caption font-rubik text-black-100 dark:text-white/40 mt-2xs">
           Agency listings are monthly rental only.
+        </Text>
+      ) : null}
+      {type === "hotel" ? (
+        <Text className="text-caption font-rubik text-black-100 dark:text-white/40 mt-2xs">
+          Hotel listings are daily rental only — guests book by the night.
         </Text>
       ) : null}
 
@@ -651,6 +674,7 @@ export default function PropertyForm({
         onChangeText={setDescription}
         placeholder="What makes this place worth living in?"
         multiline
+        error={submitted ? errors.description : undefined}
       />
 
       {submitted && !valid ? (

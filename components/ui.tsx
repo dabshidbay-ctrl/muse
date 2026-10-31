@@ -236,10 +236,10 @@ export function Chip({
       }`}
     >
       <Text
-        className={`text-caption ${
+        className={`text-[14px] leading-[20px] ${
           selected
             ? "font-rubik-semibold text-white"
-            : "font-rubik-medium text-black-200 dark:text-white/70"
+            : "font-rubik-semibold text-black-300 dark:text-white"
         }`}
       >
         {label}

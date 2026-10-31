@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { FlatList, Image, ScrollView, Text, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Stack, router } from "expo-router";
@@ -31,8 +31,10 @@ import type {
   SelfAssignableRole,
 } from "@/lib/types";
 import { captureError } from "@/lib/sentry";
+import { normalizePhone } from "@/lib/phone";
+import { getWhatsAppNumber, setWhatsAppNumber } from "@/lib/settings";
 
-type Tab = "listings" | "users" | "approvals";
+type Tab = "listings" | "users" | "approvals" | "settings";
 
 /**
  * The roles an administrator may assign from this screen.
@@ -720,6 +722,41 @@ export default function Admin() {
   // Listing posters are fetched on demand for the same reason as seller phones:
   // opening the console must not pull every publisher's number into memory.
   // `undefined` means "not asked yet", `null` means "asked, no publisher".
+  // WhatsApp number for the property-page contact button (settings tab).
+  // Loaded once for admins; an empty value hides the button on details.
+  const [whatsappInput, setWhatsappInput] = useState("");
+  const [whatsappLoaded, setWhatsappLoaded] = useState(false);
+  const [whatsappSaving, setWhatsappSaving] = useState(false);
+  const [whatsappNotice, setWhatsappNotice] = useState<string | null>(null);
+  const [whatsappError, setWhatsappError] = useState<string | null>(null);
+  useEffect(() => {
+    if (!isAdmin) return;
+    getWhatsAppNumber(supabase)
+      .then((v) => setWhatsappInput(v ?? ""))
+      .catch(() => {})
+      .finally(() => setWhatsappLoaded(true));
+  }, [isAdmin]);
+  const saveWhatsApp = async () => {
+    setWhatsappError(null);
+    setWhatsappNotice(null);
+    if (!normalizePhone(whatsappInput)) {
+      setWhatsappError("Enter a valid Somali phone number, e.g. 061 555 1234.");
+      return;
+    }
+    setWhatsappSaving(true);
+    try {
+      await setWhatsAppNumber(supabase, whatsappInput);
+      setWhatsappInput(normalizePhone(whatsappInput) ?? whatsappInput);
+      setWhatsappNotice(
+        "WhatsApp number saved. Property pages now open a chat to this number."
+      );
+    } catch (err) {
+      setWhatsappError(describeSupabaseError(err));
+    } finally {
+      setWhatsappSaving(false);
+    }
+  };
+
   const [posters, setPosters] = useState<Record<string, PropertyPoster | null>>({});
   const [posterLoadingId, setPosterLoadingId] = useState<string | null>(null);
   const [posterErrors, setPosterErrors] = useState<Record<string, string | null>>({});
@@ -970,6 +1007,7 @@ export default function Admin() {
             ["listings", "All listings", properties?.length],
             ["users", "All users", profiles?.length],
             ["approvals", "Approvals", queue?.length],
+            ["settings", "Settings", undefined],
           ] as const
         ).map(([value, label, count]) => {
           const selected = tab === value;
@@ -1014,9 +1052,61 @@ export default function Admin() {
       {header}
       {tabs}
 
-      {/* `initialLoading`, not `loading`: the refetch after a delete or a role
-          change must not blank the list back to skeletons. */}
-      {listLoading ? (
+      {/* Settings is its own panel, not a list — it renders instead of the
+          list chain, so the loading/empty branches below never apply to it. */}
+      {tab === "settings" ? (
+        <ScrollView
+          style={{ paddingHorizontal: gutter }}
+          contentContainerStyle={{ paddingBottom: 24 }}
+          showsVerticalScrollIndicator={false}
+        >
+          <Text className="text-h2 font-rubik-extrabold text-black-300 dark:text-white mb-2xs">
+            WhatsApp contact
+          </Text>
+          <Text className="text-body font-rubik text-black-200 dark:text-white/70 mb-md">
+            This is the number visitors chat to when they tap WhatsApp on a
+            property page. Their message arrives pre-filled with the property
+            details — they just press send. Leave it empty to hide the button.
+          </Text>
+          <Text className="text-caption font-rubik-medium text-black-200 dark:text-white/60 mb-2xs">
+            WhatsApp number
+          </Text>
+          <TextInput
+            value={whatsappInput}
+            onChangeText={(v) => {
+              setWhatsappInput(v);
+              setWhatsappNotice(null);
+              setWhatsappError(null);
+            }}
+            placeholder="061 555 1234"
+            placeholderTextColor="#8C8E98"
+            keyboardType="phone-pad"
+            autoCorrect={false}
+            accessibilityLabel="WhatsApp number for property pages"
+            editable={whatsappLoaded}
+            className="rounded-lg border border-line dark:border-line-dark bg-surface dark:bg-surface-dark-muted px-md py-md text-body font-rubik text-black-300 dark:text-white mb-sm"
+          />
+          {whatsappError ? <ErrorBanner message={whatsappError} /> : null}
+          {whatsappNotice ? (
+            <Text className="text-body font-rubik-medium text-primary-300 mb-sm">
+              {whatsappNotice}
+            </Text>
+          ) : null}
+          <Touchable
+            onPress={saveWhatsApp}
+            disabled={whatsappSaving || !whatsappLoaded}
+            accessibilityLabel="Save WhatsApp number"
+            style={{ minHeight: 52 }}
+            className="items-center justify-center rounded-full bg-primary-300 px-lg"
+          >
+            <Text className="text-body font-rubik-bold text-white">
+              {whatsappSaving ? "Saving…" : "Save WhatsApp number"}
+            </Text>
+          </Touchable>
+        </ScrollView>
+      ) : /* `initialLoading`, not `loading`: the refetch after a delete or a role
+          change must not blank the list back to skeletons. */
+      listLoading ? (
         <View style={{ paddingHorizontal: gutter }}>
           <ListSkeleton />
         </View>

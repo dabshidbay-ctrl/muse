@@ -132,8 +132,11 @@ export function DistrictSelect({
         disabled={disabled}
         accessibilityLabel={`${purpose}: ${selectedLabel ?? anyLabel}`}
         accessibilityHint="Opens a searchable list of Mogadishu districts"
-        style={{ minHeight: MIN_TAP }}
-        className={`flex-row items-center justify-between rounded-full border px-md ${
+        // A proper form control, not a caption-sized chip: 52 tall, 16px
+        // label, 20px icon, generous padding, so it reads as the primary
+        // location control instead of a footnote.
+        style={{ minHeight: 52 }}
+        className={`flex-row items-center justify-between rounded-xl border px-lg ${
           selectedLabel
             ? "border-primary-300 bg-primary-100"
             : "border-line dark:border-line-dark bg-surface dark:bg-surface-dark-muted"
@@ -141,17 +144,17 @@ export function DistrictSelect({
       >
         <Image
           source={icons.location}
-          style={{ width: 16, height: 16 }}
+          style={{ width: 20, height: 20 }}
           tintColor={selectedLabel ? "#0061FF" : "#8C8E98"}
           accessible={false}
           alt=""
         />
         <Text
           numberOfLines={1}
-          className={`ml-2xs flex-1 text-caption ${
+          className={`ml-xs flex-1 text-body ${
             selectedLabel
               ? "font-rubik-semibold text-primary-300"
-              : "font-rubik-medium text-black-200 dark:text-white/70"
+              : "font-rubik-medium text-black-300 dark:text-white"
           }`}
         >
           {selectedLabel ?? anyLabel}
@@ -160,7 +163,7 @@ export function DistrictSelect({
             image would need an asset that does not exist in constants/icons. */}
         <Text
           accessible={false}
-          className={`text-caption ml-xs ${
+          className={`text-body ml-xs ${
             selectedLabel ? "text-primary-300" : "text-black-100 dark:text-white/40"
           }`}
         >
@@ -348,7 +351,7 @@ function Row({
     <View className="mt-sm">
       <Text
         accessibilityRole="header"
-        className="text-caption font-rubik-semibold text-black-200 dark:text-white/60 mb-2xs"
+        className="text-[14px] leading-[20px] font-rubik-semibold text-black-300 dark:text-white mb-xs"
       >
         {title}
       </Text>
@@ -411,7 +414,7 @@ export function Filters({
       <View className="mt-sm">
         <Text
           accessibilityRole="header"
-          className="text-caption font-rubik-semibold text-black-200 dark:text-white/60 mb-2xs"
+          className="text-[14px] leading-[20px] font-rubik-semibold text-black-300 dark:text-white mb-xs"
         >
           District
         </Text>
@@ -431,10 +434,10 @@ export function Filters({
               : `${expanded ? "Hide" : "Show"} price and bedroom filters`
           }
           accessibilityState={{ selected: expanded }}
-          style={{ minHeight: MIN_TAP }}
-          className="flex-row items-center justify-center gap-2xs rounded-full border border-line dark:border-line-dark bg-surface dark:bg-surface-dark-muted px-md"
+          style={{ minHeight: 52 }}
+          className="flex-row items-center justify-center gap-2xs rounded-full border border-line dark:border-line-dark bg-surface dark:bg-surface-dark-muted px-lg"
         >
-          <Text className="text-caption font-rubik-semibold text-black-300 dark:text-white">
+          <Text className="text-[14px] leading-[20px] font-rubik-semibold text-black-300 dark:text-white">
             {expanded ? "Fewer filters" : "More filters"}
           </Text>
           {active ? (
@@ -449,10 +452,10 @@ export function Filters({
             onPress={() => onChange(clearFilters(value))}
             accessibilityLabel="Clear all filters"
             accessibilityHint="Removes the category, district, price and bedroom filters"
-            style={{ minHeight: MIN_TAP }}
-            className="items-center justify-center rounded-full border border-primary-300 bg-primary-100 px-md"
+            style={{ minHeight: 52 }}
+            className="items-center justify-center rounded-full border border-primary-300 bg-primary-100 px-lg"
           >
-            <Text className="text-caption font-rubik-semibold text-primary-300">Clear all</Text>
+            <Text className="text-[14px] leading-[20px] font-rubik-semibold text-primary-300">Clear all</Text>
           </Touchable>
         ) : null}
       </View>

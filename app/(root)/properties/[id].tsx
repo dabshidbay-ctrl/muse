@@ -23,7 +23,8 @@ import { EmptyState, IconButton, SectionHeader, Skeleton, Touchable } from "@/co
 import { AvailabilityCalendar, isRangeAvailable } from "@/components/AvailabilityCalendar";
 import { PropertyGallery } from "@/components/PropertyGallery";
 import { Stepper } from "@/components/Stepper";
-import { shareProperty } from "@/lib/share";
+import { propertyWebUrl, shareProperty } from "@/lib/share";
+import { getWhatsAppNumber } from "@/lib/settings";
 import { normalizePhone } from "@/lib/phone";
 import icons from "@/constants/icons";
 import { districts, facilities as FACILITIES_DATA } from "@/constants/data";
@@ -192,6 +193,44 @@ export default function Property() {
       setCallError("Could not open the phone app. Dial the number shown above manually.");
     }
   }, []);
+
+  // WhatsApp contact: the number comes from the admin page (app_settings),
+  // falling back to the build-time support number, and the button hides
+  // entirely when neither is set — a dead contact button is worse than none.
+  // The message is pre-filled with the property details; the visitor only
+  // has to press send in WhatsApp.
+  const [whatsappNumber, setWhatsappNumber] = useState<string | null>(null);
+  useEffect(() => {
+    let alive = true;
+    getWhatsAppNumber(supabase)
+      .then((v) => {
+        if (alive) setWhatsappNumber(v ?? (SUPPORT_PHONE || null));
+      })
+      .catch(() => {
+        if (alive) setWhatsappNumber(SUPPORT_PHONE || null);
+      });
+    return () => {
+      alive = false;
+    };
+  }, []);
+  const openWhatsApp = useCallback(() => {
+    if (!property || !whatsappNumber) return;
+    const digits = whatsappNumber.replace(/[^+\d]/g, "").replace(/^\+/, "");
+    if (!digits) return;
+    const per = property.rental_mode === "short_term" ? "per night" : "per month";
+    const district =
+      districts.find((d) => d.value === property.district)?.label ?? property.district;
+    const link = propertyWebUrl(property.id);
+    const text = [
+      "Hi! I'm interested in this property on Mogadishu Rents:",
+      `${property.name} — ${money(property.price)} ${per}${district ? ` — ${district}, Mogadishu` : ""}`,
+      link ?? "",
+      "Please share more details.",
+    ]
+      .filter(Boolean)
+      .join("\n");
+    void Linking.openURL(`https://wa.me/${digits}?text=${encodeURIComponent(text)}`);
+  }, [property, whatsappNumber]);
 
   // Shares a link to the property's page on the deployed website, so the
   // recipient opens the listing in a browser instead of a dead app-only URL.
@@ -892,6 +931,73 @@ export default function Property() {
               </>
             );
           })()}
+
+          {/* Book & contact, right after features, amenities and nearby:
+              the same booking sheet as the sticky bar, plus a WhatsApp
+              button that opens a chat with this property's details already
+              written in. Owners never see a working book button here. */}
+          <View>
+            <SectionHeader title="Book & contact" />
+            <View className="flex-row gap-xs">
+              <Touchable
+                onPress={() => {
+                  if (!user?.id) {
+                    router.push({
+                      pathname: "/sign-in",
+                      params: { returnTo: `/properties/${property.id}` },
+                    });
+                    return;
+                  }
+                  if (property.rental_mode === "monthly") {
+                    setRentSent(false);
+                  } else {
+                    setBookingSent(false);
+                  }
+                  setBookingOpen(true);
+                }}
+                disabled={isOwnListing}
+                accessibilityLabel={
+                  isOwnListing
+                    ? "You cannot rent your own listing"
+                    : property.rental_mode === "monthly"
+                      ? `Rent ${property.name}`
+                      : `Book ${property.name}`
+                }
+                accessibilityState={{ disabled: isOwnListing }}
+                style={{ minHeight: 52, flex: 1 }}
+                className={`items-center justify-center rounded-full py-md ${
+                  isOwnListing ? "bg-surface-muted dark:bg-surface-dark-muted" : "bg-primary-300"
+                }`}
+              >
+                <Text
+                  className={`text-body font-rubik-bold ${
+                    isOwnListing ? "text-black-200 dark:text-white/60" : "text-white"
+                  }`}
+                >
+                  {isOwnListing
+                    ? "Your listing"
+                    : !user?.id
+                      ? property.rental_mode === "monthly"
+                        ? "Sign in to rent"
+                        : "Sign in to book"
+                      : property.rental_mode === "monthly"
+                        ? "Rent"
+                        : "Book now"}
+                </Text>
+              </Touchable>
+              {whatsappNumber ? (
+                <Touchable
+                  onPress={openWhatsApp}
+                  accessibilityLabel={`Chat about ${property.name} on WhatsApp`}
+                  accessibilityHint="Opens WhatsApp with this property's details already written in"
+                  style={{ minHeight: 52, flex: 1 }}
+                  className="items-center justify-center rounded-full bg-[#25D366] py-md"
+                >
+                  <Text className="text-body font-rubik-bold text-white">WhatsApp</Text>
+                </Touchable>
+              ) : null}
+            </View>
+          </View>
 
           {property.reviews?.length ? (
             <>

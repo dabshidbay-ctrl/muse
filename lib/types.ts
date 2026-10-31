@@ -31,7 +31,7 @@ export type RentalMode = "monthly" | "short_term";
  * exactly (migration 0012) — lowercase, because these values travel to the DB
  * unchanged. Display labels live in constants/data.ts.
  */
-export type PropertyType = "villa" | "apartment" | "room" | "bnb";
+export type PropertyType = "villa" | "apartment" | "room" | "bnb" | "hotel";
 
 /**
  * The 20 districts of Banadir (Mogadishu). Matches the Postgres enum

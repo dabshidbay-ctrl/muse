@@ -9,7 +9,7 @@ import icons from "./icons";
 import images from "./images";
 
 /**
- * The four listing categories, in the order the chip rail renders them.
+ * The five listing categories, in the order the chip rail renders them.
  *
  * `category` values are the labels of the Postgres enum public.property_type
  * and travel to the database unchanged, so they stay lowercase; only `title` is
@@ -22,6 +22,7 @@ export const categories: { title: string; category: PropertyType | "all" }[] = [
   { title: "Apartment", category: "apartment" },
   { title: "Room", category: "room" },
   { title: "BnB", category: "bnb" },
+  { title: "Hotel", category: "hotel" },
 ];
 
 /**

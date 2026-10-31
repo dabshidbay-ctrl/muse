@@ -7,6 +7,7 @@ import { useSupabase } from "@/lib/useSupabase";
 import { describeSupabaseError, supabase } from "@/lib/supabase";
 import { getBookingRequests, getMyBookings, updateBookingStatus } from "@/lib/api";
 import { checkPaymentStatus } from "@/lib/sifalo";
+import { loadReceiptData, shareReceiptPdf } from "@/lib/receipt";
 import type { BookingStatus, BookingWithProperty } from "@/lib/types";
 import { SPACE, useResponsive } from "@/lib/responsive";
 import { BackButton, EmptyState, Skeleton, Touchable } from "@/components/ui";
@@ -49,6 +50,37 @@ export default function Bookings() {
   const [checkBusyId, setCheckBusyId] = useState<string | null>(null);
   const [checkError, setCheckError] = useState<string | null>(null);
   const [checkErrorId, setCheckErrorId] = useState<string | null>(null);
+
+  // Paid receipt: same PDF as the checkout success screen, from the row's
+  // own booking data, so a guest can re-download it any time.
+  const [receiptBusyId, setReceiptBusyId] = useState<string | null>(null);
+  const [receiptError, setReceiptError] = useState<string | null>(null);
+  const [receiptErrorId, setReceiptErrorId] = useState<string | null>(null);
+  const downloadReceipt = useCallback(
+    async (booking: BookingWithProperty) => {
+      setReceiptError(null);
+      setReceiptErrorId(null);
+      setReceiptBusyId(booking.id);
+      try {
+        const data = await loadReceiptData(
+          supabase,
+          booking,
+          user?.fullName ?? user?.email ?? "Guest",
+          booking.payment_method ?? "Mobile money"
+        );
+        await shareReceiptPdf(data);
+      } catch (err) {
+        captureError(err, "receipt");
+        setReceiptError(
+          err instanceof Error ? err.message : "Could not make the receipt."
+        );
+        setReceiptErrorId(booking.id);
+      } finally {
+        setReceiptBusyId(null);
+      }
+    },
+    [user]
+  );
 
   const mine = useSupabase({
     fn: getMyBookings,
@@ -330,6 +362,32 @@ export default function Bookings() {
                   >
                     <Text className="text-caption font-rubik-bold text-white">Pay now</Text>
                   </Touchable>
+                </View>
+              ) : null}
+
+              {/* Guest: the paid receipt PDF for a settled booking. */}
+              {tab === "mine" && item.payment_status === "paid" ? (
+                <View className="mt-md">
+                  <Touchable
+                    onPress={() => void downloadReceipt(item)}
+                    disabled={receiptBusyId === item.id}
+                    accessibilityLabel={`Download receipt for ${item.property?.name ?? "booking"}`}
+                    accessibilityState={{ busy: receiptBusyId === item.id }}
+                    style={{ minHeight: 44 }}
+                    className="items-center justify-center rounded-full border border-primary-300"
+                  >
+                    <Text className="text-caption font-rubik-bold text-primary-300">
+                      {receiptBusyId === item.id ? "Making receipt…" : "Receipt (PDF)"}
+                    </Text>
+                  </Touchable>
+                  {receiptError && receiptErrorId === item.id ? (
+                    <Text
+                      accessibilityRole="alert"
+                      className="text-caption font-rubik-medium text-danger mt-2xs"
+                    >
+                      {receiptError}
+                    </Text>
+                  ) : null}
                 </View>
               ) : null}
 

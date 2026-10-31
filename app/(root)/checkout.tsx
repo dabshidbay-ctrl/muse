@@ -3,8 +3,10 @@ import { ScrollView, Text, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router, useLocalSearchParams } from "expo-router";
 import { useSession } from "@/lib/useSession";
-import { supabase } from "@/lib/supabase";
+import { describeSupabaseError, supabase } from "@/lib/supabase";
 import { initiatePayment, PAYMENT_GATEWAYS, type PaymentGateway } from "@/lib/sifalo";
+import { getMyBookings } from "@/lib/api";
+import { loadReceiptData, shareReceiptPdf } from "@/lib/receipt";
 import { normalizePhone } from "@/lib/phone";
 import { useResponsive } from "@/lib/responsive";
 import { BackButton, Chip, Touchable } from "@/components/ui";
@@ -26,6 +28,37 @@ export default function CheckoutScreen() {
     success: boolean;
     message: string;
   } | null>(null);
+
+  // Paid receipt: built from the booking row (property, dates, amount) so
+  // the PDF shows what was actually paid, not what the URL claimed.
+  const [receiptBusy, setReceiptBusy] = useState(false);
+  const [receiptError, setReceiptError] = useState<string | null>(null);
+  const downloadReceipt = useCallback(async () => {
+    if (!bookingId) return;
+    setReceiptError(null);
+    setReceiptBusy(true);
+    try {
+      if (!user?.id) throw new Error("You are signed out — sign in again to get the receipt.");
+      const bookings = await getMyBookings(supabase, { userId: user.id });
+      const booking = bookings.find((b) => b.id === bookingId);
+      if (!booking)
+        throw new Error(
+          "Booking not found — open My bookings and use the Receipt button there."
+        );
+      const data = await loadReceiptData(
+        supabase,
+        booking,
+        user?.fullName ?? user?.email ?? "Guest",
+        PAYMENT_GATEWAYS.find((g) => g.value === gateway)?.label ?? "Mobile money"
+      );
+      await shareReceiptPdf(data);
+    } catch (err) {
+      setReceiptError(describeSupabaseError(err));
+      captureError(err, "receipt");
+    } finally {
+      setReceiptBusy(false);
+    }
+  }, [bookingId, gateway, user]);
 
   const numericAmount = parseFloat(amount ?? "0");
   // A payment link with a missing, non-numeric or non-positive amount must
@@ -255,6 +288,30 @@ export default function CheckoutScreen() {
                 View my bookings
               </Text>
             </Touchable>
+            {result.success ? (
+              <>
+                <Touchable
+                  onPress={() => void downloadReceipt()}
+                  disabled={receiptBusy}
+                  accessibilityLabel="Download booking receipt as PDF"
+                  accessibilityState={{ busy: receiptBusy }}
+                  style={{ minHeight: 44, marginTop: 8 }}
+                  className="items-center justify-center rounded-full bg-primary-300"
+                >
+                  <Text className="text-caption font-rubik-bold text-white">
+                    {receiptBusy ? "Making receipt…" : "Download receipt (PDF)"}
+                  </Text>
+                </Touchable>
+                {receiptError ? (
+                  <Text
+                    accessibilityRole="alert"
+                    className="text-caption font-rubik-medium text-danger mt-2xs"
+                  >
+                    {receiptError}
+                  </Text>
+                ) : null}
+              </>
+            ) : null}
           </View>
         ) : null}
 
