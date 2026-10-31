@@ -84,7 +84,22 @@ export async function registerForPushNotificationsAsync(
       });
     }
 
-    const tokenData = await Notifications.getExpoPushTokenAsync();
+    // In a standalone EAS build the push token request needs the EAS
+    // project id — without it the call fails and no token is ever saved,
+    // so no push ever arrives even though everything else looks wired up.
+    // Constants is how the app reads it: app.json > expo.extra.eas.projectId.
+    // Expo Go / dev builds have no project id, and there the no-arg call is
+    // the correct one, so fall back to it rather than failing outright.
+    const extra = (Constants.expoConfig?.extra ?? {}) as Record<string, unknown>;
+    const eas = extra.eas as Record<string, unknown> | undefined;
+    const projectId =
+      (typeof eas?.projectId === "string" ? eas.projectId : undefined) ??
+      (typeof (Constants as unknown as { easConfig?: { projectId?: string } }).easConfig?.projectId === "string"
+        ? (Constants as unknown as { easConfig: { projectId: string } }).easConfig.projectId
+        : undefined);
+    const tokenData = projectId
+      ? await Notifications.getExpoPushTokenAsync({ projectId })
+      : await Notifications.getExpoPushTokenAsync();
     const token = tokenData.data;
 
     const { error } = await supabase.from("push_tokens").insert({ token, user_id: userId });
@@ -148,6 +163,25 @@ export async function addNotificationReceivedListener(
     });
   } catch {
     return { remove: () => {} };
+  }
+}
+
+/**
+ * The notification that launched the app from a killed state, if any.
+ * A response listener registered after sign-in can miss a cold-start tap
+ * (the app was not running when the tap happened), so the layout also
+ * checks this once on mount and navigates from it.
+ */
+export async function getLastNotificationResponseType(): Promise<string | null> {
+  if (Platform.OS === "web") return null;
+  try {
+    const Notifications = await getNotifications();
+    if (!Notifications) return null;
+    const response = await Notifications.getLastNotificationResponseAsync();
+    const type = response?.notification.request.content.data?.type;
+    return typeof type === "string" ? type : null;
+  } catch {
+    return null;
   }
 }
 

@@ -6,6 +6,7 @@ import { supabase } from "@/lib/supabase";
 import {
   registerForPushNotificationsAsync,
   addNotificationResponseListener,
+  getLastNotificationResponseType,
 } from "@/lib/pushNotifications";
 import { captureError } from "@/lib/sentry";
 
@@ -47,34 +48,55 @@ export default function AppLayout() {
   // Register for push notifications once on sign-in (native only —
   // push notifications do not work in a browser tab).
   const registered = useRef(false);
+  const registering = useRef(false);
   useEffect(() => {
-    if (!isSignedIn || !user?.id || registered.current) return;
-    registered.current = true;
+    if (!isSignedIn || !user?.id || registered.current || registering.current) return;
     if (Platform.OS === "web") return;
-    registerForPushNotificationsAsync(supabase, user.id).catch((err) =>
-      captureError(err, "push-register")
-    );
+    // The flag is only set when a token actually comes back: if the user
+    // denied permission the first time, locking registration out forever
+    // would mean enabling notifications later in settings did nothing.
+    registering.current = true;
+    registerForPushNotificationsAsync(supabase, user.id)
+      .then((token) => {
+        if (token) registered.current = true;
+      })
+      .catch((err) => captureError(err, "push-register"))
+      .finally(() => {
+        registering.current = false;
+      });
   }, [isSignedIn, user?.id]);
 
   // Navigate to the relevant screen when the user taps a notification.
   // Only on native — expo-notifications does not work in a browser tab.
+  // This covers both a tap while the app is running (listener) and a tap
+  // that launched the app from a killed state (last response check).
+  const navigateForNotificationType = (type: string) => {
+    if (
+      type === "booking_requested" ||
+      type === "booking_confirmed" ||
+      type === "booking_declined" ||
+      type === "booking_cancelled"
+    ) {
+      router.push("/bookings");
+    } else if (type === "marketplace_enquiry") {
+      router.push("/marketplace/mine");
+    } else {
+      router.push("/notifications");
+    }
+  };
   useEffect(() => {
     if (!isSignedIn || Platform.OS === "web") return;
     let sub: { remove: () => void } = { remove: () => {} };
-    addNotificationResponseListener(({ type }) => {
-      if (
-        type === "booking_requested" ||
-        type === "booking_confirmed" ||
-        type === "booking_declined" ||
-        type === "booking_cancelled"
-      ) {
-        router.push("/bookings");
-      } else if (type === "marketplace_enquiry") {
-        router.push("/marketplace/mine");
-      } else {
-        router.push("/notifications");
+    addNotificationResponseListener(({ type }) => navigateForNotificationType(type)).then(
+      (s) => {
+        sub = s;
       }
-    }).then((s) => { sub = s; });
+    );
+    getLastNotificationResponseType()
+      .then((type) => {
+        if (type) navigateForNotificationType(type);
+      })
+      .catch(() => {});
     return () => sub.remove();
   }, [isSignedIn]);
 

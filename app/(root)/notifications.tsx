@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useRef } from "react";
 import { FlatList, Image, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { router } from "expo-router";
+import { router, useFocusEffect } from "expo-router";
 import { useSession } from "@/lib/useSession";
 import { useSupabase } from "@/lib/useSupabase";
 import { supabase } from "@/lib/supabase";
@@ -41,6 +41,15 @@ export default function Notifications() {
     params: { userId: user?.id ?? "" },
     skip: !user?.id,
   });
+
+  // A push that arrives while the app is open does not remount this screen,
+  // so coming back to it must refetch — otherwise a banner arrives and the
+  // list still shows nothing new until the screen is reopened.
+  useFocusEffect(
+    useCallback(() => {
+      if (user?.id) void refetch();
+    }, [user?.id, refetch])
+  );
 
   const items = data ?? [];
   const unread = items.filter((n) => !n.read_at).length;

@@ -61,8 +61,33 @@ function getSupabase() {
 
 Deno.serve(async (req: Request) => {
   try {
+    // The trigger passes its secret as a query parameter (the 4th argument
+    // of supabase_functions.http_request becomes query params, not the
+    // body). Verify it when the secret is configured as an Edge Function
+    // secret (PUSH_WEBHOOK_SECRET, same value as in the trigger): without
+    // this check the function accepts unauthenticated calls, and anyone
+    // who finds its URL could fire pushes at any user. Left permissive
+    // when unset so existing deployments keep working until the secret
+    // is set — set it, then the check is enforced.
+    const expectedSecret = Deno.env.get("PUSH_WEBHOOK_SECRET");
+    if (expectedSecret) {
+      const givenSecret = new URL(req.url).searchParams.get("secret");
+      if (givenSecret !== expectedSecret) {
+        return new Response(JSON.stringify({ ok: false, reason: "Bad webhook secret" }), {
+          status: 401,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+    }
+
     // Parse the webhook payload — it's the full notification row.
-    const payload: { record: NotificationPayload } = await req.json();
+    const payload: { record?: NotificationPayload } = await req.json();
+    if (!payload.record) {
+      return new Response(JSON.stringify({ ok: false, reason: "No record in payload" }), {
+        status: 200, // 200 so the webhook does not retry a malformed event.
+        headers: { "Content-Type": "application/json" },
+      });
+    }
     const { user_id, type, title, body } = payload.record;
 
     if (!user_id) {
