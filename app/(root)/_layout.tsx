@@ -118,7 +118,9 @@ export default function AppLayout() {
   // lands this layout unmounts and cannot loop back onto itself.
   useEffect(() => {
     if (isLoaded && !isSignedIn && !isPublicPath(pathname) && pathname !== "/sign-in") {
-      router.replace("/sign-in");
+      // Remember where the tap came from so the sign-in screen's back button
+      // (and the post-sign-in redirect) can take the user back there.
+      router.replace({ pathname: "/sign-in", params: { returnTo: pathname } });
     }
   }, [isLoaded, isSignedIn, pathname]);
 

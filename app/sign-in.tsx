@@ -10,8 +10,8 @@ import {
     TextInput,
     View,
 } from 'react-native'
-import { SafeAreaView } from 'react-native-safe-area-context'
-import { Redirect } from 'expo-router'
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
+import { Redirect, router, useLocalSearchParams } from 'expo-router'
 import * as WebBrowser from 'expo-web-browser'
 import {
     describeAuthError,
@@ -158,10 +158,47 @@ const Field = React.forwardRef<React.ElementRef<typeof TextInput>, FieldProps>(f
     )
 })
 
+/**
+ * Where the sign-in screen may send a user back to. A protected destination
+ * (Profile, bookings, publishing) is fine after sign-in, but as a *back*
+ * destination while still signed out it would bounce straight back here
+ * through the (root) guard — so back only ever lands on a public page.
+ */
+const isPublicReturn = (path: string): boolean => {
+    if (path === '/' || path === '/explore' || path === '/marketplace') return true
+    if (path.startsWith('/properties/')) {
+        const rest = path.slice('/properties/'.length)
+        return rest !== 'new' && rest !== 'edit' && rest !== 'listings' && !rest.includes('/')
+    }
+    if (path.startsWith('/marketplace/')) {
+        const rest = path.slice('/marketplace/'.length)
+        return rest !== 'new' && rest !== 'mine' && !rest.includes('/')
+    }
+    return false
+}
+
 const SignIn = () => {
     useWarmUpBrowser()
 
     const { isSignedIn } = useSession()
+    const insets = useSafeAreaInsets()
+    const { returnTo } = useLocalSearchParams<{ returnTo?: string }>()
+    const safeReturnTo =
+        typeof returnTo === 'string' && returnTo.startsWith('/') && returnTo !== '/sign-in'
+            ? returnTo
+            : null
+
+    const handleBack = () => {
+        if (safeReturnTo && isPublicReturn(safeReturnTo)) {
+            router.replace(safeReturnTo)
+            return
+        }
+        if (router.canGoBack()) {
+            router.back()
+            return
+        }
+        router.replace('/')
+    }
     const { heroHeight, height, isLandscape, gutter, isAtLeast } = useResponsive()
     const authHeroHeight = Math.min(
         heroHeight,
@@ -312,10 +349,42 @@ const SignIn = () => {
         }
     }, [busy])
 
-    if (isSignedIn) return <Redirect href="/" />
+    if (isSignedIn) return <Redirect href={safeReturnTo ?? '/'} />
 
     return (
         <View className="flex-1 bg-surface dark:bg-surface-dark">
+            {/* Back to where the user came from — the screen has no header,
+                so without this a signed-out visitor who tapped Profile (or
+                "Sign in to book") had no way out except the system back key,
+                which exits the app when sign-in replaced the stack. */}
+            <View
+                style={{
+                    position: 'absolute',
+                    top: insets.top + 12,
+                    left: gutter,
+                    zIndex: 10,
+                }}
+            >
+                <Touchable
+                    onPress={handleBack}
+                    accessibilityLabel="Go back"
+                    accessibilityHint="Returns to the page you were on before sign-in"
+                    style={{
+                        width: 44,
+                        height: 44,
+                        borderRadius: 22,
+                        backgroundColor: 'rgba(0,0,0,0.45)',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                    }}
+                >
+                    <Image
+                        source={icons.backArrow}
+                        style={{ width: 20, height: 20, tintColor: '#FFFFFF' }}
+                        accessible={false}
+                    />
+                </Touchable>
+            </View>
             <KeyboardAvoidingView
                 behavior={Platform.OS === 'ios' ? 'padding' : undefined}
                 className="flex-1"
