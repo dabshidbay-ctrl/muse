@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { Redirect, Stack, router, usePathname } from "expo-router";
+import { Stack, router, usePathname } from "expo-router";
 import { ActivityIndicator, Platform, SafeAreaView } from "react-native";
 import { useSession } from "@/lib/useSession";
 import { supabase } from "@/lib/supabase";
@@ -108,8 +108,22 @@ export default function AppLayout() {
     );
   }
 
+  // Signed-out guard, done as an effect instead of a render-time <Redirect>:
+  // rendering <Redirect> out of this layout — which owns the tab navigator —
+  // while a tab tap is still settling crashed the release build on Android
+  // (tapping Profile while signed out exited the app instead of showing
+  // sign-in). Navigating from an effect, after the tap has landed, and
+  // rendering nothing meanwhile, takes that transition out of the crash path.
+  // The sign-in screen itself lives outside this group, so once the replace
+  // lands this layout unmounts and cannot loop back onto itself.
+  useEffect(() => {
+    if (isLoaded && !isSignedIn && !isPublicPath(pathname) && pathname !== "/sign-in") {
+      router.replace("/sign-in");
+    }
+  }, [isLoaded, isSignedIn, pathname]);
+
   if (!isSignedIn && !isPublicPath(pathname)) {
-    return <Redirect href="/sign-in" />;
+    return null;
   }
 
   return <Stack screenOptions={{ headerShown: false }} />;
