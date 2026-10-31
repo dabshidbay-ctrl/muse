@@ -2,11 +2,11 @@
   "expo": {
     "name": "restate",
     "slug": "restate",
-    "version": "1.0.3",
+    "version": "1.0.4",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "restate",
-    "userInterfaceStyle": "automatic",
+    "userInterfaceStyle": "light",
     "ios": {
       "supportsTablet": true
     },
@@ -17,7 +17,7 @@
       },
       "permissions": [],
       "package": "com.restate.app",
-      "versionCode": 4
+      "versionCode": 5
     },
     "web": {
       "bundler": "metro",

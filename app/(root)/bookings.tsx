@@ -6,6 +6,7 @@ import { useSession } from "@/lib/useSession";
 import { useSupabase } from "@/lib/useSupabase";
 import { describeSupabaseError, supabase } from "@/lib/supabase";
 import { getBookingRequests, getMyBookings, updateBookingStatus } from "@/lib/api";
+import { checkPaymentStatus } from "@/lib/sifalo";
 import type { BookingStatus, BookingWithProperty } from "@/lib/types";
 import { SPACE, useResponsive } from "@/lib/responsive";
 import { BackButton, EmptyState, Skeleton, Touchable } from "@/components/ui";
@@ -45,6 +46,9 @@ export default function Bookings() {
   const [tab, setTab] = useState<"mine" | "requests">("mine");
   const [busyId, setBusyId] = useState<string | null>(null);
   const [respondError, setRespondError] = useState<string | null>(null);
+  const [checkBusyId, setCheckBusyId] = useState<string | null>(null);
+  const [checkError, setCheckError] = useState<string | null>(null);
+  const [checkErrorId, setCheckErrorId] = useState<string | null>(null);
 
   const mine = useSupabase({
     fn: getMyBookings,
@@ -59,6 +63,28 @@ export default function Bookings() {
 
   const active = tab === "mine" ? mine : requests;
   const items = active.data ?? [];
+
+  // Re-check a pending mobile-money payment: Sifalo settles it server-side
+  // and the lists refresh, so an approval made on the phone after checkout
+  // stops reading "Paying" forever.
+  const checkPayment = useCallback(
+    async (booking: BookingWithProperty) => {
+      setCheckError(null);
+      setCheckErrorId(null);
+      setCheckBusyId(booking.id);
+      try {
+        await checkPaymentStatus(supabase, booking.id);
+        await Promise.all([mine.refetch(), requests.refetch()]);
+      } catch (err) {
+        captureError(err, "payment-status-check");
+        setCheckError(err instanceof Error ? err.message : "Could not check payment.");
+        setCheckErrorId(booking.id);
+      } finally {
+        setCheckBusyId(null);
+      }
+    },
+    [mine.refetch, requests.refetch]
+  );
 
   const respond = useCallback(
     async (booking: BookingWithProperty, status: BookingStatus) => {
@@ -304,6 +330,33 @@ export default function Bookings() {
                   >
                     <Text className="text-caption font-rubik-bold text-white">Pay now</Text>
                   </Touchable>
+                </View>
+              ) : null}
+
+              {/* Guest: re-check a pending mobile-money payment, e.g. one
+                  approved on the phone after leaving checkout. */}
+              {tab === "mine" && item.payment_status === "pending" ? (
+                <View className="mt-md">
+                  <Touchable
+                    onPress={() => void checkPayment(item)}
+                    disabled={checkBusyId === item.id}
+                    accessibilityLabel="Check payment status"
+                    accessibilityState={{ busy: checkBusyId === item.id }}
+                    style={{ minHeight: 44 }}
+                    className="items-center justify-center rounded-full border border-primary-300"
+                  >
+                    <Text className="text-caption font-rubik-bold text-primary-300">
+                      {checkBusyId === item.id ? "Checking…" : "Check payment"}
+                    </Text>
+                  </Touchable>
+                  {checkError && checkErrorId === item.id ? (
+                    <Text
+                      accessibilityRole="alert"
+                      className="text-caption font-rubik-medium text-danger mt-2xs"
+                    >
+                      {checkError}
+                    </Text>
+                  ) : null}
                 </View>
               ) : null}
 

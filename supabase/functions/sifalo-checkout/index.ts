@@ -76,7 +76,7 @@ Deno.serve(async (req: Request) => {
     }
 
     if (isStatus) {
-      return await handleStatus(body);
+      return await handleStatus(body, req);
     }
     return await handlePayment(body, req);
   } catch (err) {
@@ -221,11 +221,14 @@ async function handlePayment(body: Record<string, unknown>, req: Request) {
   }
 
   // Update the booking row (supabase client was created above for auth).
+  // The order id is stored too: a pending (603) payment can only be
+  // re-checked with this exact id, and it was previously lost.
   await supabase
     .from("bookings")
     .update({
       payment_status: status === "success" ? "paid" : status === "pending" ? "pending" : "failed",
       sifalo_sid: sid || null,
+      sifalo_order_id: orderId,
       paid_amount: status === "success" ? expectedAmount : null,
       payment_method: gateway.toUpperCase(),
     })
@@ -240,9 +243,46 @@ async function handlePayment(body: Record<string, unknown>, req: Request) {
   });
 }
 
-async function handleStatus(body: Record<string, unknown>) {
-  const { orderId } = body as { orderId?: string };
-  if (!orderId) throw new Error("orderId is required");
+async function handleStatus(body: Record<string, unknown>, req: Request) {
+  const { bookingId, orderId: passedOrderId } = body as {
+    bookingId?: string;
+    orderId?: string;
+  };
+
+  // Same caller check as handlePayment: the service_role client below
+  // bypasses RLS, so the booking's owner must be proven from the JWT.
+  const authHeader = req.headers.get("Authorization");
+  if (!authHeader?.startsWith("Bearer ")) {
+    throw new Error("Sign in to check a payment.");
+  }
+  const supabase = getSupabase();
+  const { data: { user }, error: authError } = await supabase.auth.getUser(
+    authHeader.slice("Bearer ".length),
+  );
+  if (authError || !user) {
+    throw new Error("Sign in to check a payment.");
+  }
+
+  // The booking is the source of truth for the order id. A bare orderId is
+  // accepted only as a fallback for rows created before the column existed.
+  let orderId = passedOrderId ?? null;
+  let booking: { id: string } | null = null;
+  if (bookingId) {
+    const { data, error } = await supabase
+      .from("bookings")
+      .select("id, guest_id, sifalo_order_id")
+      .eq("id", bookingId)
+      .maybeSingle();
+    if (error || !data) throw new Error("Booking not found.");
+    if ((data as { guest_id?: string }).guest_id !== user.id) {
+      throw new Error("This booking belongs to someone else.");
+    }
+    booking = data as { id: string };
+    orderId = (data as { sifalo_order_id?: string | null }).sifalo_order_id ?? orderId;
+  }
+  if (!orderId) {
+    throw new Error("This payment has no order reference to check. It was created before order ids were stored.");
+  }
 
   const res = await fetch("https://api.sifalopay.com/gateway/verify.php", {
     method: "POST",
@@ -271,6 +311,22 @@ async function handleStatus(body: Record<string, unknown>) {
   }
 
   const status = data.status === "success" ? "success" : data.status === "failure" ? "failure" : "pending";
+
+  // A re-check is not just a read: it settles the booking row, so a payment
+  // approved on the phone after checkout no longer stays "pending" forever.
+  if (booking) {
+    const verifiedAmount = Number(data.amount ?? NaN);
+    await supabase
+      .from("bookings")
+      .update({
+        payment_status: status === "success" ? "paid" : status === "failure" ? "failed" : "pending",
+        ...(status === "success" && Number.isFinite(verifiedAmount)
+          ? { paid_amount: verifiedAmount }
+          : {}),
+        ...(data.sid ? { sifalo_sid: String(data.sid) } : {}),
+      })
+      .eq("id", booking.id);
+  }
 
   return json({
     sid: data.sid,

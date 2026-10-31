@@ -1,150 +1,72 @@
-import { useCallback, useEffect, useState } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { Appearance, Platform } from "react-native";
-import { colorScheme, useColorScheme } from "nativewind";
-import { captureError } from "./sentry";
+import { Platform } from "react-native";
+import { colorScheme } from "nativewind";
 
 /**
- * Appearance.
+ * Appearance: light only, by decision.
  *
- * `tailwind.config.js` sets `darkMode: "class"`, which means NativeWind only
- * applies `dark:` styles when something tells it the active scheme. Nothing
- * ever did, so every `dark:` class in the app was inert on web (native quietly
- * followed the OS through its own default). Calling `colorScheme.set` is what
- * makes the whole dark palette real on both platforms.
+ * `tailwind.config.js` sets `darkMode: "class"`, so NativeWind only applies
+ * `dark:` styles when the scheme is set to dark. This module now never sets
+ * dark: every entry point pins light, and any theme choice a previous build
+ * stored is cleared on startup, so a device in dark mode still gets the light
+ * app. The exports keep their old shapes so existing callers do not break.
  */
 export type ThemeMode = "system" | "light" | "dark";
 
 const STORAGE_KEY = "restate.theme";
 
 export const THEME_OPTIONS: { value: ThemeMode; label: string; hint: string }[] = [
-  { value: "system", label: "System", hint: "Follow your device setting" },
   { value: "light", label: "Light", hint: "Always light" },
-  { value: "dark", label: "Dark", hint: "Always dark" },
 ];
 
-function isMode(v: unknown): v is ThemeMode {
-  return v === "system" || v === "light" || v === "dark";
+/** Light only: no mode, system or otherwise, ever resolves to dark. */
+function resolveScheme(_mode: ThemeMode): "light" {
+  return "light";
 }
 
-/**
- * Resolves "system" to a concrete scheme.
- *
- * This has to happen here rather than being handed to NativeWind, because with
- * `darkMode: "class"` its web setter only ever adds the class for the literal
- * value "dark" and removes it for everything else — "system" included. Passing
- * "system" through therefore pinned web to light no matter what the OS said.
- */
-function resolveScheme(mode: ThemeMode): "light" | "dark" {
-  if (mode !== "system") return mode;
-  return Appearance.getColorScheme() === "dark" ? "dark" : "light";
-}
-
-/** Pushes a mode into NativeWind, resolving "system" first. */
-export function applyTheme(mode: ThemeMode) {
+/** Pushes light into NativeWind. */
+export function applyTheme(_mode: ThemeMode) {
   // Only the web prerender pass (Node, no window) must skip: the setter
-  // throws outright there. The old `!globalThis.window` guard also skipped
-  // native, where there is no `window` global at all — so a saved Light/Dark
-  // choice was silently inert on phones while working on web.
+  // throws outright there.
   if (Platform.OS === "web" && typeof globalThis.window === "undefined") return;
-  colorScheme.set(resolveScheme(mode));
+  colorScheme.set(resolveScheme("light"));
 }
 
 /**
- * Applies the saved choice as early as possible.
+ * Applies light as early as possible.
  *
- * Called from the root layout before render rather than from an effect: a
- * one-frame flash of the wrong theme is the most visible bug an appearance
- * setting can have, and on web it means a white flash on a dark device.
- * `colorScheme.set` is safe outside React — it is NativeWind's imperative
- * handle on the same store the hook reads.
+ * Called from the root layout before render rather than from an effect, so
+ * there is no one-frame flash of the wrong theme on startup. Any theme a
+ * previous build stored is removed, so it cannot come back.
  */
 export async function loadSavedTheme(): Promise<ThemeMode> {
-  // `expo export --platform web` prerenders every route in Node, where
-  // react-native-css-interop's setter throws outright ("Cannot manually set
-  // color scheme while not in a browser environment"). Only that server pass
-  // is skipped; on native there is no `window` global, and skipping there
-  // used to ignore a saved Light/Dark choice on phones entirely.
-  if (Platform.OS === "web" && typeof globalThis.window === "undefined") return "system";
+  if (Platform.OS === "web" && typeof globalThis.window === "undefined") return "light";
 
   try {
-    const saved = await AsyncStorage.getItem(STORAGE_KEY);
-    if (isMode(saved)) {
-      applyTheme(saved);
-      return saved;
-    }
-  } catch (err) {
-    // A failed read is not worth blocking startup: fall through to "system",
-    // which is what a first-run user gets anyway.
-    captureError(err, "theme-load");
+    await AsyncStorage.removeItem(STORAGE_KEY);
+  } catch {
+    // A failed clear is not worth blocking startup over.
   }
-  applyTheme("system");
-  return "system";
+  applyTheme("light");
+  return "light";
 }
 
 export type UseTheme = {
-  /** What the user chose — "system" included, which `scheme` never is. */
+  /** Always "light" now; kept for callers that read it. */
   mode: ThemeMode;
-  /** What is actually being displayed right now. */
-  scheme: "light" | "dark";
+  /** Always "light" now. */
+  scheme: "light";
+  /** No-op now: there is no other theme to switch to. */
   setMode: (next: ThemeMode) => void;
-  /** True until the saved choice has been read back. */
+  /** Always false now: there is nothing to load. */
   loading: boolean;
 };
 
 export function useTheme(): UseTheme {
-  const { colorScheme: active } = useColorScheme();
-  const [mode, setModeState] = useState<ThemeMode>("system");
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    let alive = true;
-    AsyncStorage.getItem(STORAGE_KEY)
-      .then((saved) => {
-        if (!alive) return;
-        if (isMode(saved)) {
-          setModeState(saved);
-          applyTheme(saved);
-        }
-      })
-      .catch((err) => captureError(err, "theme-load"))
-      .finally(() => {
-        if (alive) setLoading(false);
-      });
-    return () => {
-      alive = false;
-    };
-  }, []);
-
-  // While the user is on "System", the OS can change under us (a device on a
-  // sunset schedule). Without this the app keeps whatever scheme was current
-  // when it launched.
-  useEffect(() => {
-    if (mode !== "system") return;
-    const sub = Appearance.addChangeListener(() => applyTheme("system"));
-    return () => sub.remove();
-  }, [mode]);
-
-  const setMode = useCallback(
-    (next: ThemeMode) => {
-      // Applied first, persisted second: the switch must feel instant, and a
-      // storage failure should not stop the theme from changing for this
-      // session.
-      setModeState(next);
-      applyTheme(next);
-      AsyncStorage.setItem(STORAGE_KEY, next).catch((err) =>
-        captureError(err, "theme-save")
-      );
-    },
-    []
-  );
-
   return {
-    mode,
-    // `colorScheme` resolves "system" to the concrete scheme; it can be
-    // undefined for a frame before the store initialises.
-    scheme: active === "dark" ? "dark" : "light",
-    setMode,
-    loading,
+    mode: "light",
+    scheme: "light",
+    setMode: () => {},
+    loading: false,
   };
 }

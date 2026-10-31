@@ -82,3 +82,33 @@ export async function initiatePayment(
     throw new Error(`Invalid response from payment server: ${body.slice(0, 200)}`);
   }
 }
+
+/**
+ * Re-check a pending (603) payment with Sifalo and settle the booking row.
+ *
+ * The Edge Function verifies the caller, resolves the stored order id for
+ * the booking, asks Sifalo, and updates the booking's payment_status — so a
+ * payment approved on the phone after checkout stops reading "pending".
+ */
+export async function checkPaymentStatus(
+  supabase: SupabaseClient,
+  bookingId: string
+): Promise<{ status: "success" | "failure" | "pending" }> {
+  const res = await fetch(`${FN_BASE}?status=1`, {
+    method: "POST",
+    headers: await authHeader(supabase),
+    body: JSON.stringify({ bookingId }),
+  });
+
+  const body = await res.text();
+
+  if (!res.ok) {
+    throw new Error(body || `Could not check payment (HTTP ${res.status})`);
+  }
+
+  try {
+    return JSON.parse(body) as { status: "success" | "failure" | "pending" };
+  } catch {
+    throw new Error(`Invalid response from payment server: ${body.slice(0, 200)}`);
+  }
+}

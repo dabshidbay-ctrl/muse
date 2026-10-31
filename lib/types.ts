@@ -204,6 +204,9 @@ export type Booking = {
   message: string | null;
   payment_status: PaymentStatus;
   sifalo_sid: string | null;
+  /** Sifalo order id (booking_<id>_<timestamp>), stored so a pending payment
+      can be re-checked later. Null for rows created before migration 0029. */
+  sifalo_order_id?: string | null;
   paid_amount: number | null;
   payment_method: string | null;
   created_at: string;

@@ -8,7 +8,8 @@ import { signOut } from "@/lib/supabase";
 import { useProfile } from "@/lib/useProfile";
 import { MIN_TAP, useResponsive } from "@/lib/responsive";
 import { EmptyState, SectionHeader, Skeleton, Touchable } from "@/components/ui";
-import { THEME_OPTIONS, useTheme } from "@/lib/theme";
+import { useSupabase } from "@/lib/useSupabase";
+import { getBookingRequests, getMyBookings } from "@/lib/api";
 import { settings } from "@/constants/data";
 import icons from "@/constants/icons";
 import { captureError } from "@/lib/sentry";
@@ -53,6 +54,9 @@ function Row({
 }
 
 const APP_VERSION = Constants.expoConfig?.version ?? "";
+
+const money = (n: number) =>
+  `$${Number(n).toLocaleString("en-US", { maximumFractionDigits: 0 })}`;
 
 /**
  * If anything in the profile screen itself throws during render, the app
@@ -129,7 +133,32 @@ function ProfileInner() {
     "Saved properties": () => router.push("/favorites"),
   };
   const settingsRows = settings.filter((s) => DESTINATIONS[s.title]);
-  const { mode: themeMode, scheme: themeScheme, setMode: setThemeMode } = useTheme();
+
+  // Overview analytics: what this account has paid as a tenant, what it has
+  // received as an owner, and the booking counts behind those totals. Paid
+  // figures use the recorded paid_amount and fall back to the booking total.
+  const mine = useSupabase({
+    fn: getMyBookings,
+    params: { userId: user?.id ?? "" },
+    skip: !user?.id,
+  });
+  const requests = useSupabase({
+    fn: getBookingRequests,
+    params: { userId: user?.id ?? "" },
+    skip: !user?.id,
+  });
+  const myBookings = mine.data ?? [];
+  const myRequests = requests.data ?? [];
+  const paidAsTenant = myBookings
+    .filter((b) => b.payment_status === "paid")
+    .reduce((sum, b) => sum + Number(b.paid_amount ?? b.total_price ?? 0), 0);
+  const receivedAsOwner = myRequests
+    .filter((b) => b.payment_status === "paid")
+    .reduce((sum, b) => sum + Number(b.paid_amount ?? b.total_price ?? 0), 0);
+  const awaitingReply =
+    myBookings.filter((b) => b.status === "pending").length +
+    myRequests.filter((b) => b.status === "pending").length;
+  const analyticsLoading = mine.initialLoading || requests.initialLoading;
 
   const handleLogout = async () => {
     // Sign-out tears down the session the whole tree reads from; a second tap
@@ -256,41 +285,62 @@ function ProfileInner() {
           </Text>
         </View>
 
-        <SectionHeader title="Appearance" />
-        <View className="rounded-lg bg-surface dark:bg-surface-dark-muted border border-line dark:border-line-dark p-md">
-          <View accessibilityRole="tablist" className="flex-row gap-2xs p-2xs rounded-full bg-surface-muted dark:bg-surface-dark">
-            {THEME_OPTIONS.map((option) => {
-              const selected = themeMode === option.value;
-              return (
-                <Touchable
-                  key={option.value}
-                  onPress={() => setThemeMode(option.value)}
-                  accessibilityRole="tab"
-                  accessibilityLabel={`${option.label}. ${option.hint}`}
-                  accessibilityState={{ selected }}
-                  style={{ flex: 1, minHeight: 44 }}
-                  className={`flex-1 items-center justify-center rounded-full ${
-                    selected ? "bg-surface dark:bg-surface-dark-elevated" : ""
-                  }`}
-                >
-                  <Text
-                    className={`text-caption ${
-                      selected
-                        ? "font-rubik-bold text-primary-300"
-                        : "font-rubik-medium text-black-200 dark:text-white/60"
-                    }`}
-                  >
-                    {option.label}
+        {/* Overview: money in and out, plus the booking counts behind them.
+            No theme picker lives here anymore — the app is light-only now. */}
+        <SectionHeader title="Overview" />
+        <View className="rounded-lg bg-surface border border-line p-md">
+          {analyticsLoading ? (
+            <Skeleton className="h-16 w-full" />
+          ) : (
+            <>
+              <View className="flex-row gap-sm">
+                <View className="flex-1 rounded-md bg-primary-100 p-md">
+                  <Text className="text-caption font-rubik-medium text-black-200">
+                    Paid as tenant
                   </Text>
-                </Touchable>
-              );
-            })}
-          </View>
-          <Text className="text-caption font-rubik text-black-100 dark:text-white/40 mt-xs">
-            {themeMode === "system"
-              ? `Following your device — currently ${themeScheme}.`
-              : `Always ${themeMode}, whatever your device is set to.`}
-          </Text>
+                  <Text className="text-h2 font-rubik-extrabold text-black-300 mt-2xs">
+                    {money(paidAsTenant)}
+                  </Text>
+                </View>
+                <View className="flex-1 rounded-md bg-success/10 p-md">
+                  <Text className="text-caption font-rubik-medium text-black-200">
+                    Received as owner
+                  </Text>
+                  <Text className="text-h2 font-rubik-extrabold text-success mt-2xs">
+                    {money(receivedAsOwner)}
+                  </Text>
+                </View>
+              </View>
+              <View className="flex-row gap-sm mt-md">
+                <View className="flex-1 items-center">
+                  <Text className="text-body font-rubik-bold text-black-300">
+                    {myBookings.length}
+                  </Text>
+                  <Text className="text-caption font-rubik text-black-200">My bookings</Text>
+                </View>
+                <View className="flex-1 items-center">
+                  <Text className="text-body font-rubik-bold text-black-300">
+                    {myRequests.length}
+                  </Text>
+                  <Text className="text-caption font-rubik text-black-200">Requests</Text>
+                </View>
+                <View className="flex-1 items-center">
+                  <Text className="text-body font-rubik-bold text-black-300">
+                    {awaitingReply}
+                  </Text>
+                  <Text className="text-caption font-rubik text-black-200">Awaiting reply</Text>
+                </View>
+              </View>
+              <Touchable
+                onPress={() => router.push("/payments")}
+                accessibilityLabel="View payments"
+                style={{ minHeight: 44, marginTop: 12 }}
+                className="items-center justify-center rounded-full border border-primary-300"
+              >
+                <Text className="text-body font-rubik-bold text-primary-300">View payments</Text>
+              </Touchable>
+            </>
+          )}
         </View>
 
         {/* If nothing in `settings` maps to a real screen the whole section
